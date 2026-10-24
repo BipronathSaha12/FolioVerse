@@ -1,0 +1,23 @@
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+
+
+class BookPagination(PageNumberPagination):
+    """
+    Pagination class configured for 5 books per page (as per assignment requirements).
+    GET /api/books/?page=2
+    """
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+    def get_paginated_response(self, data):
+        return Response({
+            'count': self.page.paginator.count,
+            'total_pages': self.page.paginator.num_pages,
+            'current_page': self.page.number,
+            'page_size': self.get_page_size(self.request),
+            'next': self.get_next_link(),
+            'previous': self.get_previous_link(),
+            'results': data
+        })

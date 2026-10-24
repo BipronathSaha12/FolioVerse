@@ -1,0 +1,458 @@
+{
+	"info": {
+		"_postman_id": "9d81d2a4-4f9e-4e9b-b0b8-7c3fa1b58521",
+		"name": "FolioVerse Book Store REST API",
+		"description": "Postman Collection for Django REST Framework Book Store API assignment.\nFeatures Token Authentication, ModelViewSet CRUD, Filtering by Author, Searching by Title, Ordering by Price, Pagination (5 per page), and Throttling.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://127.0.0.1:8000",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "0107288f4315fd9f739dced5cdd99c9c0061fe4f",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"testuser_postman\",\n    \"email\": \"postman@folioverse.com\",\n    \"password\": \"password123\",\n    \"password_confirm\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/register/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"register",
+								""
+							]
+						},
+						"description": "Registers a new user and automatically returns an authentication token."
+					},
+					"response": []
+				},
+				{
+					"name": "Login User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.token) {",
+									"    pm.collectionVariables.set('authToken', jsonData.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin12345\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/login/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"login",
+								""
+							]
+						},
+						"description": "Authenticates user and returns authentication token."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/user/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"user",
+								""
+							]
+						},
+						"description": "Retrieves the authenticated user's profile details."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/logout/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"logout",
+								""
+							]
+						},
+						"description": "Revokes the current authentication token."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Books",
+			"item": [
+				{
+					"name": "Retrieve All Books (Page 1)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/?page=1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Public endpoint. Retrieves paginated list of books (5 books per page)."
+					},
+					"response": []
+				},
+				{
+					"name": "Pagination Page 2",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/?page=2",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "2"
+								}
+							]
+						},
+						"description": "Retrieves page 2 of books."
+					},
+					"response": []
+				},
+				{
+					"name": "Filter by Author",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/?author=J.K. Rowling",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							],
+							"query": [
+								{
+									"key": "author",
+									"value": "J.K. Rowling"
+								}
+							]
+						},
+						"description": "Filters books authored by 'J.K. Rowling'."
+					},
+					"response": []
+				},
+				{
+					"name": "Search by Title",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/?search=Harry",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "Harry"
+								}
+							]
+						},
+						"description": "Searches for books with 'Harry' in the title."
+					},
+					"response": []
+				},
+				{
+					"name": "Order by Price (Ascending)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/?ordering=price",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							],
+							"query": [
+								{
+									"key": "ordering",
+									"value": "price"
+								}
+							]
+						},
+						"description": "Orders books by price in ascending order."
+					},
+					"response": []
+				},
+				{
+					"name": "Order by Price (Descending)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/?ordering=-price",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							],
+							"query": [
+								{
+									"key": "ordering",
+									"value": "-price"
+								}
+							]
+						},
+						"description": "Orders books by price in descending order."
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve Single Book",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/1/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"1",
+								""
+							]
+						},
+						"description": "Public endpoint. Retrieves details for book ID 1."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Book (Authenticated)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{authToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Dune\",\n    \"author\": \"Frank Herbert\",\n    \"price\": \"21.95\",\n    \"published_date\": \"1965-08-01\",\n    \"description\": \"Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides, heir to a noble family.\",\n    \"category\": \"Sci-Fi\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/books/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								""
+							]
+						},
+						"description": "Authenticated endpoint. Creates a new book."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Book (PUT - Authenticated)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{authToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Dune: Deluxe Edition\",\n    \"author\": \"Frank Herbert\",\n    \"price\": \"29.99\",\n    \"published_date\": \"1965-08-01\",\n    \"description\": \"Deluxe hardcover edition with updated forward.\",\n    \"category\": \"Sci-Fi\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/books/1/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"1",
+								""
+							]
+						},
+						"description": "Authenticated endpoint. Replaces/updates all fields of book 1."
+					},
+					"response": []
+				},
+				{
+					"name": "Partially Update Book (PATCH - Authenticated)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{authToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"price\": \"24.99\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/books/1/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"1",
+								""
+							]
+						},
+						"description": "Authenticated endpoint. Partially updates price of book 1."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Book (Authenticated)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/books/15/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"books",
+								"15",
+								""
+							]
+						},
+						"description": "Authenticated endpoint. Deletes a book."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
