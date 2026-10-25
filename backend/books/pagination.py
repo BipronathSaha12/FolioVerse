@@ -4,10 +4,10 @@ from rest_framework.response import Response
 
 class BookPagination(PageNumberPagination):
     """
-    Pagination class configured for 5 books per page (as per assignment requirements).
-    GET /api/books/?page=2
+    Pagination class configured for at least 10 books per page.
+    Supports ?page=2&page_size=10
     """
-    page_size = 5
+    page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
 

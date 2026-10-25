@@ -55,8 +55,10 @@ export const bookService = {
   updateBook: (id, data) => api.put(`/books/${id}/`, data),
   // PATCH /api/books/<id>/
   patchBook: (id, data) => api.patch(`/books/${id}/`, data),
-  // DELETE /api/books/<id>/
-  deleteBook: (id) => api.delete(`/books/${id}/`),
+  // POST /api/books/<id>/buy/
+  buyBook: (id, data = {}) => api.post(`/books/${id}/buy/`, data),
+  // GET /api/books/taxonomy/
+  getTaxonomy: () => api.get('/books/taxonomy/'),
   // Check API health
   checkHealth: () => api.get('/'),
 };

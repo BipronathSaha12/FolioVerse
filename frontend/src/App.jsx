@@ -9,10 +9,13 @@ import { Pagination } from './components/Pagination';
 import { AuthModal } from './components/AuthModal';
 import { BookModal } from './components/BookModal';
 import { BookDetailModal } from './components/BookDetailModal';
+import { BuyBookModal } from './components/BuyBookModal';
+import { SellBookModal } from './components/SellBookModal';
+import { ContactModal } from './components/ContactModal';
+import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
-import { ApiDocsModal } from './components/ApiDocsModal';
 import { ToastContainer } from './components/Toast';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Shield } from 'lucide-react';
 
 function FolioVerseContent() {
   const { isAuthenticated } = useAuth();
@@ -24,22 +27,26 @@ function FolioVerseContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  // Filter, search & ordering states
+  // Search & Taxonomy Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [authorFilter, setAuthorFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [subcategoryFilter, setSubcategoryFilter] = useState('');
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [ordering, setOrdering] = useState('');
-  const [allAuthors, setAllAuthors] = useState(['J.K. Rowling', 'George Orwell', 'F. Scott Fitzgerald', 'J.R.R. Tolkien', 'Harper Lee', 'Agatha Christie']);
 
   // Health & connection state
   const [apiConnected, setApiConnected] = useState(true);
 
   // Modals state
-  const [authModal, setAuthModal] = useState({ open: false, mode: 'login' });
+  const [authModal, setAuthModal] = useState({ open: false, mode: 'login', role: 'buyer' });
   const [bookModal, setBookModal] = useState({ open: false, book: null });
   const [detailModal, setDetailModal] = useState({ open: false, book: null });
+  const [buyModal, setBuyModal] = useState({ open: false, book: null });
+  const [sellModalOpen, setSellModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, book: null });
-  const [apiDocsOpen, setApiDocsOpen] = useState(false);
 
   // Toast notifications
   const [toasts, setToasts] = useState([]);
@@ -57,24 +64,31 @@ function FolioVerseContent() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setCurrentPage(1); // Reset to page 1 on new search
+      setCurrentPage(1);
     }, 350);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch books from Django REST Framework
+  // Fetch books from Django REST Framework (10 items per page)
   const fetchBooks = useCallback(async () => {
     setLoading(true);
     try {
       const params = {
         page: currentPage,
+        page_size: 10,
       };
 
       if (debouncedSearch) {
         params.search = debouncedSearch;
       }
-      if (authorFilter) {
-        params.author = authorFilter;
+      if (categoryFilter) {
+        params.category = categoryFilter;
+      }
+      if (subcategoryFilter) {
+        params.subcategory = subcategoryFilter;
+      }
+      if (inStockOnly) {
+        params.in_stock = true;
       }
       if (ordering) {
         params.ordering = ordering;
@@ -83,11 +97,10 @@ function FolioVerseContent() {
       const res = await bookService.getBooks(params);
       const data = res.data;
 
-      // When paginated by DRF PageNumberPagination
       if (data && data.results) {
         setBooks(data.results);
         setTotalBooks(data.count || 0);
-        setTotalPages(data.total_pages || Math.ceil((data.count || 1) / 5));
+        setTotalPages(data.total_pages || Math.ceil((data.count || 1) / 10));
       } else if (Array.isArray(data)) {
         setBooks(data);
         setTotalBooks(data.length);
@@ -114,13 +127,13 @@ function FolioVerseContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch, authorFilter, ordering, addToast]);
+  }, [currentPage, debouncedSearch, categoryFilter, subcategoryFilter, inStockOnly, ordering, addToast]);
 
   useEffect(() => {
     fetchBooks();
   }, [fetchBooks]);
 
-  // Check health and seed authors list
+  // Check health on startup
   useEffect(() => {
     bookService
       .checkHealth()
@@ -128,134 +141,124 @@ function FolioVerseContent() {
       .catch(() => setApiConnected(false));
   }, []);
 
-  // Reset filters
+  // Reset all filters
   const handleResetFilters = () => {
     setSearchQuery('');
-    setAuthorFilter('');
+    setCategoryFilter('');
+    setSubcategoryFilter('');
+    setInStockOnly(false);
     setOrdering('');
     setCurrentPage(1);
-  };
-
-  // Download Postman Collection
-  const handleDownloadPostman = () => {
-    // Read the static JSON file and trigger browser download
-    fetch('/FolioVerse_BookStore.postman_collection.json')
-      .then((res) => {
-        if (!res.ok) throw new Error('File not found in public folder');
-        return res.blob();
-      })
-      .catch(() => {
-        // Fallback: construct Postman collection blob on the fly
-        const collectionData = {
-          info: {
-            name: "FolioVerse Book Store REST API",
-            schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-          },
-          item: [
-            { name: "POST Register", request: { method: "POST", url: "http://127.0.0.1:8000/api/register/" } },
-            { name: "POST Login", request: { method: "POST", url: "http://127.0.0.1:8000/api/login/" } },
-            { name: "GET Books (Page 1)", request: { method: "GET", url: "http://127.0.0.1:8000/api/books/?page=1" } },
-            { name: "GET Filter by Author", request: { method: "GET", url: "http://127.0.0.1:8000/api/books/?author=J.K. Rowling" } },
-            { name: "GET Search by Title", request: { method: "GET", url: "http://127.0.0.1:8000/api/books/?search=Harry" } },
-            { name: "GET Order by Price", request: { method: "GET", url: "http://127.0.0.1:8000/api/books/?ordering=price" } },
-            { name: "POST Create Book", request: { method: "POST", url: "http://127.0.0.1:8000/api/books/" } },
-            { name: "DELETE Book", request: { method: "DELETE", url: "http://127.0.0.1:8000/api/books/1/" } }
-          ]
-        };
-        return new Blob([JSON.stringify(collectionData, null, 2)], { type: 'application/json' });
-      })
-      .then((blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'FolioVerse_BookStore.postman_collection.json';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        addToast('Postman Collection downloaded successfully.', 'success', 'Collection Exported');
-      });
   };
 
   // Require Auth guard
   const handleRequireAuth = (customMsg) => {
     addToast(customMsg || 'Authentication required for this operation.', 'warning', 'Auth Required');
-    setAuthModal({ open: true, mode: 'login' });
+    setAuthModal({ open: true, mode: 'login', role: 'seller' });
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-cyan-500 selection:text-white">
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      {/* Navbar */}
+      {/* Book Store Navbar with FolioVerse Logo, Dashboard, Contact & Role CTAs */}
       <Navbar
-        onOpenAuth={(mode) => setAuthModal({ open: true, mode })}
-        onOpenAddBook={() => {
-          if (isAuthenticated) {
-            setBookModal({ open: true, book: null });
-          } else {
-            handleRequireAuth('Please log in with Token Authentication to add a new book.');
-          }
+        onOpenAuth={(mode = 'login', role = 'buyer') => setAuthModal({ open: true, mode, role })}
+        onOpenSellBook={() => setSellModalOpen(true)}
+        onOpenContact={() => setContactModalOpen(true)}
+        onOpenDashboard={() => setAdminDashboardOpen(true)}
+        onSelectCategory={(cat) => {
+          setCategoryFilter(cat);
+          setSubcategoryFilter('');
+          setCurrentPage(1);
         }}
-        onOpenApiDocs={() => setApiDocsOpen(true)}
+        onSelectSubcategory={(sub) => {
+          setSubcategoryFilter(sub);
+          setCurrentPage(1);
+        }}
+        selectedCategory={categoryFilter}
+        selectedSubcategory={subcategoryFilter}
         apiConnected={apiConnected}
         bookCount={totalBooks}
       />
 
-      {/* Main Container */}
+      {/* Main Bookstore Container */}
       <main className="flex-1">
-        {/* Hero Section */}
+        {/* Bookstore Hero Section */}
         <HeroSection
           totalBooks={totalBooks}
-          onOpenAddBook={() => {
-            if (isAuthenticated) {
-              setBookModal({ open: true, book: null });
-            } else {
-              handleRequireAuth('Please log in with Token Authentication to add a book.');
-            }
+          onOpenSellBook={() => setSellModalOpen(true)}
+          onOpenAuth={(mode = 'register', role = 'buyer') => setAuthModal({ open: true, mode, role })}
+          onOpenContact={() => setContactModalOpen(true)}
+          onSelectCategory={(cat) => {
+            setCategoryFilter(cat);
+            setSubcategoryFilter('');
+            setCurrentPage(1);
           }}
-          onOpenApiDocs={() => setApiDocsOpen(true)}
-          onDownloadPostman={handleDownloadPostman}
+          onSelectSubcategory={(sub) => {
+            setSubcategoryFilter(sub);
+            setCurrentPage(1);
+          }}
         />
 
         {/* Catalog Section */}
-        <section id="catalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+        <section id="catalog" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-20">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Book Catalog</h2>
+                <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
+                  <BookOpen className="w-6 h-6 text-cyan-400" />
+                  <span>Available Books Catalog</span>
+                </h2>
                 <button
                   onClick={fetchBooks}
                   disabled={loading}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                  title="Refresh catalog"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                  title="Refresh books list from PostgreSQL"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
                 </button>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Explore books stored in PostgreSQL with instant search, author filters, and pagination.
+                Browse, buy, and inspect verified books with live stock and multi-language support.
               </p>
             </div>
 
-            {/* Pagination quick count */}
-            <div className="text-xs text-slate-400">
-              Page <span className="font-semibold text-white">{currentPage}</span> of{' '}
-              <span className="font-semibold text-white">{totalPages || 1}</span>
+            {/* Pagination & Active Filter Status */}
+            <div className="flex items-center gap-3 text-xs text-slate-400">
+              {categoryFilter && (
+                <div className="px-2.5 py-1 rounded-lg bg-cyan-950/80 border border-cyan-500/30 text-cyan-300 font-semibold">
+                  {categoryFilter} {subcategoryFilter ? `• ${subcategoryFilter}` : ''}
+                </div>
+              )}
+              <div>
+                Page <span className="font-semibold text-white">{currentPage}</span> of{' '}
+                <span className="font-semibold text-white">{totalPages || 1}</span>
+              </div>
             </div>
           </div>
 
-          {/* Filter Bar */}
+          {/* Filter Bar with Categories & Subcategories */}
           <FilterBar
             searchQuery={searchQuery}
             onSearchChange={(val) => {
               setSearchQuery(val);
               setCurrentPage(1);
             }}
-            authorFilter={authorFilter}
-            onAuthorChange={(val) => {
-              setAuthorFilter(val);
+            categoryFilter={categoryFilter}
+            onCategoryChange={(cat) => {
+              setCategoryFilter(cat);
+              setCurrentPage(1);
+            }}
+            subcategoryFilter={subcategoryFilter}
+            onSubcategoryChange={(sub) => {
+              setSubcategoryFilter(sub);
+              setCurrentPage(1);
+            }}
+            inStockOnly={inStockOnly}
+            onInStockToggle={(val) => {
+              setInStockOnly(val);
               setCurrentPage(1);
             }}
             ordering={ordering}
@@ -264,14 +267,15 @@ function FolioVerseContent() {
               setCurrentPage(1);
             }}
             onResetFilters={handleResetFilters}
-            authorsList={allAuthors}
+            totalResults={totalBooks}
           />
 
-          {/* Book Cards Grid */}
+          {/* Book Cards Grid (10 books per page) */}
           <BookGrid
             books={books}
             loading={loading}
             onViewBook={(book) => setDetailModal({ open: true, book })}
+            onBuyBook={(book) => setBuyModal({ open: true, book })}
             onEditBook={(book) => setBookModal({ open: true, book })}
             onDeleteBook={(book) => setDeleteModal({ open: true, book })}
             isAuthenticated={isAuthenticated}
@@ -279,12 +283,12 @@ function FolioVerseContent() {
             onResetFilters={handleResetFilters}
           />
 
-          {/* Pagination Controls */}
+          {/* Pagination Controls (10 items per page with sliding window for 200+ pages) */}
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
             totalCount={totalBooks}
-            pageSize={5}
+            pageSize={10}
             onPageChange={(page) => {
               setCurrentPage(page);
               window.scrollTo({ top: 380, behavior: 'smooth' });
@@ -293,28 +297,51 @@ function FolioVerseContent() {
         </section>
       </main>
 
-      {/* Modals */}
-      <AuthModal
-        isOpen={authModal.open}
-        initialMode={authModal.mode}
-        onClose={() => setAuthModal({ open: false, mode: 'login' })}
-        onSuccess={(msg) => addToast(msg, 'success', 'Authenticated')}
-      />
-
-      <BookModal
-        isOpen={bookModal.open}
-        bookToEdit={bookModal.book}
-        onClose={() => setBookModal({ open: false, book: null })}
+      {/* Buy Book Instant Checkout Modal */}
+      <BuyBookModal
+        isOpen={buyModal.open}
+        book={buyModal.book}
+        onClose={() => setBuyModal({ open: false, book: null })}
         onSuccess={(msg) => {
-          addToast(msg, 'success');
+          addToast(msg, 'success', 'Order Confirmed');
           fetchBooks();
         }}
       />
 
+      {/* Sell a Book Listing Modal */}
+      <SellBookModal
+        isOpen={sellModalOpen}
+        onClose={() => setSellModalOpen(false)}
+        onSuccess={(msg) => {
+          addToast(msg, 'success', 'Book Listed for Sale');
+          fetchBooks();
+        }}
+      />
+
+      {/* Contact Authority Modal (direct to bipronathsaha@gmail.com) */}
+      <ContactModal
+        isOpen={contactModalOpen}
+        onClose={() => setContactModalOpen(false)}
+        onSuccess={(msg) => addToast(msg, 'success', 'Message Prepared')}
+      />
+
+      {/* Store Admin & Seller Dashboard (Mobile Responsive) */}
+      <AdminDashboardModal
+        isOpen={adminDashboardOpen}
+        onClose={() => setAdminDashboardOpen(false)}
+        onOpenAddBook={() => setSellModalOpen(true)}
+        onEditBook={(book) => setBookModal({ open: true, book })}
+        onDeleteBook={(book) => setDeleteModal({ open: true, book })}
+        onRefreshCatalog={fetchBooks}
+        totalBooksCount={totalBooks}
+      />
+
+      {/* Book Detail Modal with Instant Buy Button */}
       <BookDetailModal
         isOpen={detailModal.open}
         book={detailModal.book}
         onClose={() => setDetailModal({ open: false, book: null })}
+        onBuy={(book) => setBuyModal({ open: true, book })}
         onEdit={(book) => {
           setDetailModal({ open: false, book: null });
           setBookModal({ open: true, book });
@@ -327,32 +354,74 @@ function FolioVerseContent() {
         onRequireAuth={handleRequireAuth}
       />
 
+      {/* Edit / Add Book Modal */}
+      <BookModal
+        isOpen={bookModal.open}
+        bookToEdit={bookModal.book}
+        onClose={() => setBookModal({ open: false, book: null })}
+        onSuccess={(msg) => {
+          addToast(msg, 'success');
+          fetchBooks();
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={deleteModal.open}
         book={deleteModal.book}
         onClose={() => setDeleteModal({ open: false, book: null })}
         onSuccess={(msg) => {
-          addToast(msg, 'success', 'Book Deleted');
+          addToast(msg, 'success', 'Book Removed');
           fetchBooks();
         }}
       />
 
-      <ApiDocsModal
-        isOpen={apiDocsOpen}
-        onClose={() => setApiDocsOpen(false)}
-        onDownloadPostman={handleDownloadPostman}
+      {/* Authentication Modal with Role Selection (Buyer vs Seller) and Demo Logins */}
+      <AuthModal
+        isOpen={authModal.open}
+        initialMode={authModal.mode}
+        initialRole={authModal.role}
+        onClose={() => setAuthModal({ open: false, mode: 'login', role: 'buyer' })}
+        onSuccess={(msg) => addToast(msg, 'success', 'Authenticated')}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-slate-300">FolioVerse</span>
-            <span>•</span>
-            <span>Django REST Framework & PostgreSQL</span>
+      {/* Professional Bookstore Footer (Clean Client-Side Links, NO Developer API Endpoints) */}
+      <footer className="border-t border-slate-800/80 bg-slate-950/90 py-8 sm:py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3 text-center sm:text-left">
+            <span className="font-extrabold text-white text-sm bg-gradient-to-r from-white via-cyan-200 to-emerald-300 bg-clip-text text-transparent">
+              FolioVerse
+            </span>
+            <span className="text-slate-600 hidden sm:inline">•</span>
+            <span className="text-slate-300">Digital Book Shop & Marketplace</span>
+            <span className="text-slate-600 hidden sm:inline">•</span>
+            <span className="text-emerald-400">Science, Technology, Fiction, Bengali & English Literature, Music</span>
           </div>
-          <div>
-            Module-23 Assignment Completed with DRF ModelViewSet, Token Auth & React UI
+
+          <div className="flex flex-wrap items-center justify-center gap-4 text-slate-400">
+            <button
+              onClick={() => setSellModalOpen(true)}
+              className="hover:text-emerald-400 transition-colors font-bold text-emerald-300 flex items-center gap-1"
+            >
+              List a Book
+            </button>
+            <a href="#catalog" className="hover:text-white transition-colors">
+              Buy Books
+            </a>
+            <button
+              onClick={() => setContactModalOpen(true)}
+              className="hover:text-emerald-400 text-slate-300 transition-colors flex items-center gap-1 font-semibold"
+            >
+              <Mail className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Contact Authority</span>
+            </button>
+            <button
+              onClick={() => setAdminDashboardOpen(true)}
+              className="hover:text-cyan-400 text-slate-300 transition-colors flex items-center gap-1 font-semibold"
+            >
+              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Store Dashboard</span>
+            </button>
           </div>
         </div>
       </footer>
