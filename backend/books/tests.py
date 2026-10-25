@@ -304,3 +304,69 @@ class BookStoreAPITests(TestCase):
         self.assertEqual(desc_res.status_code, status.HTTP_200_OK)
         desc_prices = [float(b['price']) for b in desc_res.data['results']]
         self.assertEqual(desc_prices, sorted(desc_prices, reverse=True))
+
+    def test_create_order_cart_stripe(self):
+        """
+        Test multi-item Cart purchase with Stripe Card Payment.
+        """
+        b1 = self.books[0]
+        b2 = self.books[1]
+        payload = {
+            "customer_name": "Rahim Ahmed",
+            "customer_email": "rahim@example.com",
+            "customer_phone": "+8801712345678",
+            "shipping_address": "House 12, Road 5, Dhanmondi, Dhaka",
+            "payment_method": "stripe",
+            "transaction_id": "ch_mock_stripe_987654",
+            "items": [
+                {"book_id": b1.id, "quantity": 1},
+                {"book_id": b2.id, "quantity": 2},
+            ]
+        }
+        res = self.client.post('/api/orders/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['payment_method'], 'stripe')
+        self.assertEqual(res.data['payment_status'], 'paid')
+        self.assertEqual(len(res.data['items']), 2)
+
+    def test_create_order_cart_bkash(self):
+        """
+        Test multi-item Cart purchase with bKash Mobile Banking.
+        """
+        b1 = self.books[2]
+        payload = {
+            "customer_name": "Farhana Sultana",
+            "customer_email": "farhana@example.com",
+            "customer_phone": "+8801812345678",
+            "shipping_address": "Agrabad C/A, Chittagong",
+            "payment_method": "bkash",
+            "transaction_id": "BKASH992837482",
+            "items": [
+                {"book_id": b1.id, "quantity": 1}
+            ]
+        }
+        res = self.client.post('/api/orders/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['payment_method'], 'bkash')
+        self.assertEqual(res.data['transaction_id'], 'BKASH992837482')
+        self.assertEqual(res.data['payment_status'], 'paid')
+
+    def test_create_order_cart_cod(self):
+        """
+        Test multi-item Cart purchase with Cash on Delivery (COD).
+        """
+        b1 = self.books[3]
+        payload = {
+            "customer_name": "Tanvir Hasan",
+            "customer_email": "tanvir@example.com",
+            "customer_phone": "+8801912345678",
+            "shipping_address": "Zindabazar, Sylhet",
+            "payment_method": "cod",
+            "items": [
+                {"book_id": b1.id, "quantity": 1}
+            ]
+        }
+        res = self.client.post('/api/orders/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['payment_method'], 'cod')
+        self.assertEqual(res.data['payment_status'], 'pending')

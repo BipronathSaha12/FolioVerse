@@ -63,4 +63,10 @@ export const bookService = {
   checkHealth: () => api.get('/'),
 };
 
+export const orderService = {
+  createOrder: (data) => api.post('/orders/', data),
+  getOrders: (params = {}) => api.get('/orders/', { params }),
+  getOrder: (id) => api.get(`/orders/${id}/`),
+};
+
 export default api;

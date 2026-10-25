@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider, useCart } from './context/CartContext';
 import { bookService } from './services/api';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
@@ -14,6 +15,7 @@ import { SellBookModal } from './components/SellBookModal';
 import { ContactModal } from './components/ContactModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { CartDrawer } from './components/CartDrawer';
 import { ToastContainer } from './components/Toast';
 import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Shield } from 'lucide-react';
 
@@ -48,6 +50,9 @@ function FolioVerseContent() {
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, book: null });
 
+  // Cart toast sync
+  const { toastMessage } = useCart();
+
   // Toast notifications
   const [toasts, setToasts] = useState([]);
 
@@ -59,6 +64,12 @@ function FolioVerseContent() {
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  useEffect(() => {
+    if (toastMessage) {
+      addToast(toastMessage.text, toastMessage.type || 'info');
+    }
+  }, [toastMessage, addToast]);
 
   // Debounce search input
   useEffect(() => {
@@ -385,6 +396,14 @@ function FolioVerseContent() {
         onSuccess={(msg) => addToast(msg, 'success', 'Authenticated')}
       />
 
+      {/* Slide-out Cart Drawer with Multi-Option Checkout (Stripe, bKash, Nagad, Rocket, COD) */}
+      <CartDrawer
+        onOrderPlaced={(order) => {
+          addToast(`Order #${order.order_number} successfully placed!`, 'success', 'Order Confirmed');
+          fetchBooks();
+        }}
+      />
+
       {/* Professional Bookstore Footer (Clean Client-Side Links, NO Developer API Endpoints) */}
       <footer className="border-t border-slate-800/80 bg-slate-950/90 py-8 sm:py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
@@ -432,7 +451,9 @@ function FolioVerseContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <FolioVerseContent />
+      <CartProvider>
+        <FolioVerseContent />
+      </CartProvider>
     </AuthProvider>
   );
 }

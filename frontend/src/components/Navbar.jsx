@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import folioverseLogo from '../assets/projects/folioverse_logo.jpg';
 import {
   BookOpen,
@@ -17,6 +18,7 @@ import {
   Mail,
   Shield,
   Store,
+  Layers,
 } from 'lucide-react';
 
 export const Navbar = ({
@@ -32,6 +34,7 @@ export const Navbar = ({
   bookCount,
 }) => {
   const { user, isAuthenticated, logout } = useAuth();
+  const { totalItems, subtotal, openCart } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
@@ -94,20 +97,26 @@ export const Navbar = ({
     setMobileMenuOpen(false);
   };
 
+  const handleClearFilters = (e) => {
+    e.stopPropagation();
+    if (onSelectCategory) onSelectCategory('');
+    if (onSelectSubcategory) onSelectSubcategory('');
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl transition-all">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl transition-all">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20 gap-2">
-          {/* Logo & Branding */}
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-3">
+          {/* Logo & Branding (Left) */}
           <a
             href="#"
-            className="flex items-center gap-2.5 sm:gap-3 group focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-2xl p-1 shrink-0"
+            className="flex items-center gap-2 sm:gap-3 group focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-2xl p-1 shrink-0"
           >
-            <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-2xl p-0.5 bg-gradient-to-tr from-cyan-500 via-indigo-500 to-emerald-400 shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-400/40 transition-all duration-300 shrink-0">
+            <div className="relative h-9 w-9 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl p-0.5 bg-gradient-to-tr from-cyan-500 via-indigo-500 to-emerald-400 shadow-md sm:shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-400/40 transition-all duration-300 shrink-0">
               <img
                 src={folioverseLogo}
                 alt="FolioVerse Logo"
-                className="w-full h-full object-cover object-[center_35%] rounded-[14px] bg-slate-950"
+                className="w-full h-full object-cover object-[center_35%] rounded-[10px] sm:rounded-[14px] bg-slate-950"
               />
               <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5 sm:h-3 sm:w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -116,46 +125,61 @@ export const Navbar = ({
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-r from-white via-cyan-100 to-indigo-200 bg-clip-text text-transparent truncate">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-base sm:text-xl tracking-tight bg-gradient-to-r from-white via-cyan-100 to-indigo-200 bg-clip-text text-transparent truncate">
                   FolioVerse
                 </span>
-                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 tracking-wide shrink-0">
-                  Book Store
+                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 tracking-wide shrink-0">
+                  Shop
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-400">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                <span className="text-slate-400 truncate hidden min-[360px]:inline">Buy & Sell Books</span>
-                <span className="text-slate-600 hidden min-[440px]:inline">•</span>
-                <span className="text-cyan-400 font-medium hidden min-[440px]:inline">
+                <span className="text-slate-400 truncate hidden min-[380px]:inline">Buy & Sell</span>
+                <span className="text-slate-600 hidden min-[480px]:inline">•</span>
+                <span className="text-cyan-400 font-medium hidden min-[480px]:inline">
                   {bookCount ? bookCount.toLocaleString() : '2,000'} In Stock
                 </span>
               </div>
             </div>
           </a>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-2">
+          {/* Desktop Decongested Navigation Links (Center) */}
+          <nav className="hidden lg:flex items-center gap-2 xl:gap-3">
             {/* Catalog Mega-Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${
-                  selectedCategory
+                  selectedCategory || selectedSubcategory
                     ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 shadow-sm'
-                    : 'bg-slate-900/90 border-slate-700/80 text-slate-200 hover:text-white hover:border-slate-600'
+                    : 'bg-slate-900/80 border-slate-700/80 text-slate-200 hover:text-white hover:border-slate-600'
                 }`}
               >
                 <BookOpen className="w-4 h-4 text-cyan-400" />
-                <span>{selectedCategory ? `${selectedCategory}` : 'Browse Genres'}</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`}
-                />
+                <span className="truncate max-w-[140px]">
+                  {selectedSubcategory || selectedCategory || 'Browse Genres'}
+                </span>
+                {selectedCategory || selectedSubcategory ? (
+                  <span
+                    onClick={handleClearFilters}
+                    className="p-0.5 rounded hover:bg-cyan-500/30 text-cyan-300"
+                    title="Clear filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                ) : (
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                      categoryDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                )}
               </button>
 
+              {/* Mega Dropdown Menu */}
               {categoryDropdownOpen && (
-                <div className="absolute left-0 mt-2 w-[480px] rounded-2xl bg-slate-900/95 border border-slate-700/80 shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl">
+                <div className="absolute left-0 mt-2 w-[520px] rounded-2xl bg-slate-900/95 border border-slate-700/80 shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl">
                   <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-800 text-xs font-bold text-slate-300">
                     <span className="flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-cyan-400" />
@@ -171,12 +195,15 @@ export const Navbar = ({
 
                   <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto pr-1">
                     {categories.map((cat) => (
-                      <div key={cat.name} className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                      <div
+                        key={cat.name}
+                        className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition-colors"
+                      >
                         <button
                           onClick={() => handleCategoryClick(cat.name, '')}
                           className="w-full text-left font-bold text-xs text-white hover:text-cyan-400 transition-colors flex items-center justify-between mb-1.5"
                         >
-                          <span className="flex items-center gap-1.5">
+                          <span className="flex items-center gap-1.5 truncate">
                             <span>{cat.icon}</span>
                             <span className="truncate">{cat.name}</span>
                           </span>
@@ -186,7 +213,11 @@ export const Navbar = ({
                             <button
                               key={sub}
                               onClick={() => handleCategoryClick(cat.name, sub)}
-                              className="w-full text-left text-[11px] text-slate-400 hover:text-cyan-300 truncate transition-colors block py-0.5"
+                              className={`w-full text-left text-[11px] truncate transition-colors block py-0.5 ${
+                                selectedSubcategory === sub
+                                  ? 'text-cyan-300 font-bold'
+                                  : 'text-slate-400 hover:text-cyan-300'
+                              }`}
                             >
                               {sub}
                             </button>
@@ -199,57 +230,82 @@ export const Navbar = ({
               )}
             </div>
 
-            {/* Quick Links */}
+            {/* Quick Genre Switcher Pills */}
             <button
               onClick={() => handleCategoryClick('Literature & Novel', 'Bengali Literature')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
                 selectedSubcategory === 'Bengali Literature'
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-sm'
+                  : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800/80'
               }`}
             >
-              🇧🇩 Bengali Literature
+              🇧🇩 Bengali Lit.
             </button>
 
             <button
               onClick={() => handleCategoryClick('Literature & Novel', 'English Literature')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
                 selectedSubcategory === 'English Literature'
-                  ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300 shadow-sm'
+                  : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800/80'
               }`}
             >
-              🇬🇧 English Literature
+              🇬🇧 English Classics
             </button>
 
-            <button
-              onClick={onOpenContact}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-emerald-400 hover:bg-slate-800/60 rounded-xl transition-all"
-            >
-              <Mail className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Contact</span>
-            </button>
-
+            {/* Store Dashboard link */}
             <button
               onClick={onOpenDashboard}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/30 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-slate-800 transition-all"
             >
               <Shield className="w-3.5 h-3.5 text-cyan-400" />
               <span>Dashboard</span>
             </button>
+
+            {/* Contact link */}
+            <button
+              onClick={onOpenContact}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-emerald-400 hover:bg-slate-800/60 border border-transparent hover:border-slate-800 transition-all"
+            >
+              <Mail className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Contact</span>
+            </button>
           </nav>
 
-          {/* Desktop Right Actions: Sell a Book & Auth */}
-          <div className="hidden lg:flex items-center gap-2.5">
+          {/* Desktop Right Actions: Cart, Sell CTA & Auth */}
+          <div className="hidden lg:flex items-center gap-3">
+            {/* Prominent Cart Trigger Pill */}
+            <button
+              onClick={openCart}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 border border-cyan-500/30 hover:border-cyan-400 text-white transition-all shadow-sm active:scale-95 group relative"
+              aria-label="View Shopping Cart"
+            >
+              <div className="relative">
+                <ShoppingBag className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                {totalItems > 0 && (
+                  <span className="absolute -top-2 -right-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-slate-950 shadow-md animate-in zoom-in">
+                    {totalItems > 9 ? '9+' : totalItems}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-bold text-slate-200">Cart</span>
+              {totalItems > 0 && (
+                <span className="text-xs font-extrabold text-emerald-400 pl-1 border-l border-slate-700">
+                  ${subtotal.toFixed(2)}
+                </span>
+              )}
+            </button>
+
             {/* Sell a Book Button */}
             <button
               onClick={onOpenSellBook}
-              className="flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-xl shadow-lg shadow-emerald-600/25 hover:shadow-emerald-500/35 transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Sell a Book</span>
             </button>
 
+            {/* User Profile / Auth Section */}
             {isAuthenticated ? (
               <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
                 <button
@@ -257,14 +313,14 @@ export const Navbar = ({
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition-colors"
                   title="Open Admin Dashboard"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
                     <User className="w-3.5 h-3.5" />
                   </div>
-                  <div>
-                    <div className="text-xs font-semibold text-white leading-tight">
+                  <div className="truncate max-w-[100px]">
+                    <div className="text-xs font-semibold text-white truncate leading-tight">
                       {user?.username}
                     </div>
-                    <div className="text-[9px] text-emerald-400 flex items-center gap-1">
+                    <div className="text-[9px] text-emerald-400 flex items-center gap-0.5">
                       <CheckCircle2 className="w-2.5 h-2.5" /> Verified
                     </div>
                   </div>
@@ -291,33 +347,41 @@ export const Navbar = ({
                   onClick={() => onOpenAuth && onOpenAuth('register', 'buyer')}
                   className="px-3 py-2 text-xs font-bold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-xl transition-all"
                 >
-                  Join as Buyer
+                  Join Store
                 </button>
               </div>
             )}
           </div>
 
-          {/* Mini & Tablet Device Toggle Button (< 1024px) */}
+          {/* Small Device Top Bar Controls (< 1024px) */}
           <div className="lg:hidden flex items-center gap-2">
+            {/* Mobile Cart Trigger */}
             <button
-              onClick={onOpenDashboard}
-              className="p-2 rounded-xl text-cyan-400 bg-cyan-950/40 border border-cyan-500/30"
-              title="Dashboard"
+              onClick={openCart}
+              className="relative p-2 rounded-xl bg-slate-900 text-slate-200 border border-slate-800 hover:border-cyan-500/40"
+              aria-label="Open Cart"
             >
-              <Shield className="w-4 h-4" />
+              <ShoppingBag className="w-4 h-4 text-cyan-400" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-black text-slate-950">
+                  {totalItems > 9 ? '9+' : totalItems}
+                </span>
+              )}
             </button>
 
+            {/* Quick Sell Button */}
             <button
               onClick={onOpenSellBook}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl shadow-md transition-all active:scale-95"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-sm active:scale-95 transition-all"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Sell</span>
             </button>
 
+            {/* Hamburger Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 rounded-xl text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 transition-all focus:outline-none"
               aria-label="Toggle navigation menu"
               aria-expanded={mobileMenuOpen}
             >
@@ -331,11 +395,11 @@ export const Navbar = ({
         </div>
       </div>
 
-      {/* Mini Device Toggleable Mobile Drawer & Backdrop */}
+      {/* Small Device Toggleable Mobile Drawer & Backdrop (< 1024px) */}
       {mobileMenuOpen && (
         <>
           <div
-            className="fixed inset-0 top-16 sm:top-20 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 top-16 sm:top-20 bg-slate-950/85 backdrop-blur-sm z-40 lg:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
 
@@ -351,6 +415,28 @@ export const Navbar = ({
                   {bookCount ? bookCount.toLocaleString() : '2,000'} Books
                 </span>
               </div>
+
+              {/* Mobile Cart Direct Summary */}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  openCart();
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-cyan-500/30 text-white"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                    <ShoppingBag className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold">View Shopping Cart</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-xs">
+                    {totalItems} items
+                  </span>
+                  <span className="text-xs font-bold text-emerald-400">${subtotal.toFixed(2)}</span>
+                </div>
+              </button>
 
               {/* Onboarding Role Choice Cards for Mobile */}
               {!isAuthenticated && (
@@ -412,10 +498,21 @@ export const Navbar = ({
 
               {/* Genre & Subcategory Selector for Mobile */}
               <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
-                  Browse Catalog Genres:
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+                    Browse Catalog Genres:
+                  </span>
+                  {(selectedCategory || selectedSubcategory) && (
+                    <button
+                      onClick={handleClearFilters}
+                      className="text-[11px] text-cyan-400 hover:underline"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     onClick={() => handleCategoryClick('Literature & Novel', 'Bengali Literature')}
@@ -472,15 +569,6 @@ export const Navbar = ({
                   <PlusCircle className="w-4 h-4" />
                   List / Sell a Book
                 </button>
-
-                <a
-                  href="#catalog"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-semibold text-slate-200 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-center"
-                >
-                  <ShoppingBag className="w-4 h-4 text-cyan-400" />
-                  Browse Books to Buy
-                </a>
 
                 {isAuthenticated ? (
                   <div className="flex items-center justify-between bg-slate-900/90 p-3 rounded-2xl border border-slate-800">

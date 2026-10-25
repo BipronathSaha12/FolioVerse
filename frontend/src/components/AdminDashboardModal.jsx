@@ -18,7 +18,7 @@ import {
   Trash2,
   ExternalLink,
 } from 'lucide-react';
-import { bookService } from '../services/api';
+import { bookService, orderService } from '../services/api';
 
 export const AdminDashboardModal = ({
   isOpen,
@@ -39,6 +39,8 @@ export const AdminDashboardModal = ({
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryFilter, setInventoryFilter] = useState(''); // '' | 'available' | 'low_stock' | 'sold'
   const [actionMsg, setActionMsg] = useState('');
+  const [liveOrders, setLiveOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Fetch taxonomy and stats
   useEffect(() => {
@@ -51,6 +53,26 @@ export const AdminDashboardModal = ({
         .finally(() => setLoadingTaxonomy(false));
     }
   }, [isOpen]);
+
+  // Fetch live orders
+  const loadOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const res = await orderService.getOrders();
+      const results = res.data?.results || res.data || [];
+      setLiveOrders(results);
+    } catch (err) {
+      console.error('Failed to load orders:', err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'orders') {
+      loadOrders();
+    }
+  }, [isOpen, activeTab]);
 
   // Fetch inventory books for quick management
   const loadInventory = async () => {
@@ -446,36 +468,120 @@ export const AdminDashboardModal = ({
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
                 <span className="font-bold text-white flex items-center gap-2">
                   <ShoppingCart className="w-4 h-4 text-emerald-400" />
-                  Recent Marketplace Checkout Activity
+                  Live Marketplace Checkout & Orders ({liveOrders.length} Recorded in DB)
                 </span>
-                <span className="text-[11px] text-emerald-400 font-semibold">100% Fulfilled</span>
+                <button
+                  onClick={loadOrders}
+                  disabled={ordersLoading}
+                  className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh Orders</span>
+                </button>
               </div>
 
-              <div className="space-y-2">
-                {recentOrders.map((ord) => (
-                  <div
-                    key={ord.id}
-                    className="p-3 sm:p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-cyan-400 font-bold">{ord.id}</span>
-                        <span className="font-bold text-white">{ord.book}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        Buyer: <span className="text-slate-200">{ord.buyer}</span> • Qty: {ord.qty} • {ord.time}
-                      </div>
-                    </div>
+              {ordersLoading ? (
+                <div className="py-12 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                  <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
+                  <span>Loading recent orders from database...</span>
+                </div>
+              ) : liveOrders.length > 0 ? (
+                <div className="space-y-2.5">
+                  {liveOrders.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="p-3 sm:p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-2 text-xs"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-cyan-300 font-bold">{ord.order_number}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="font-bold text-white">{ord.customer_name}</span>
+                          <span className="text-slate-500 text-[11px]">({ord.customer_email})</span>
+                        </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-3 self-stretch sm:self-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-                      <span className="font-black text-emerald-400 text-sm">{ord.amount}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-bold">
-                        {ord.status}
-                      </span>
+                        <div className="flex items-center gap-2">
+                          {/* Payment Method Badge */}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              ord.payment_method === 'stripe'
+                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                                : ord.payment_method === 'bkash'
+                                ? 'bg-pink-500/10 text-pink-400 border border-pink-500/30'
+                                : ord.payment_method === 'nagad'
+                                ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+                                : ord.payment_method === 'rocket'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            }`}
+                          >
+                            {ord.payment_method}
+                          </span>
+                          <span className="font-black text-emerald-400 text-sm">
+                            ${parseFloat(ord.total_amount).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Items & Shipping Address Details */}
+                      <div className="pt-2 border-t border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-400">
+                        <div className="truncate">
+                          <span className="text-slate-500">Items: </span>
+                          {ord.items && ord.items.length > 0 ? (
+                            ord.items.map((it, idx) => (
+                              <span key={it.id || idx} className="text-slate-300 font-medium">
+                                {it.quantity}x "{it.title}"
+                                {idx < ord.items.length - 1 ? ', ' : ''}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-slate-400">Book Order</span>
+                          )}
+                        </div>
+
+                        {ord.transaction_id && (
+                          <div className="font-mono text-[10px] text-cyan-400/90 shrink-0">
+                            TrxID: {ord.transaction_id}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-[10px] text-slate-500">
+                        Ship to: {ord.shipping_address}
+                      </div>
                     </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="p-3 text-center text-xs text-slate-400 bg-slate-950/60 rounded-xl border border-slate-800">
+                    No checkout orders in database yet. Displaying simulated activity log:
                   </div>
-                ))}
-              </div>
+                  {recentOrders.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="p-3 sm:p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-cyan-400 font-bold">{ord.id}</span>
+                          <span className="font-bold text-white">{ord.book}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          Buyer: <span className="text-slate-200">{ord.buyer}</span> • Qty: {ord.qty} • {ord.time}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3 self-stretch sm:self-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+                        <span className="font-black text-emerald-400 text-sm">{ord.amount}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-bold">
+                          {ord.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

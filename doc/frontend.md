@@ -16,22 +16,24 @@ frontend/src/
 │   └── projects/
 │       └── folioverse_logo.jpg       # High-resolution official brand logo
 ├── components/
-│   ├── AdminDashboardModal.jsx       # Mobile-responsive store admin & inventory dashboard
+│   ├── AdminDashboardModal.jsx       # Mobile-responsive store admin & inventory dashboard with live order tracking
 │   ├── AuthModal.jsx                 # Role onboarding (Buyer vs Seller) & 1-click demo logins
-│   ├── BookCard.jsx                  # Individual book card with live stock badges & price
+│   ├── BookCard.jsx                  # Golden 3:4 portrait aspect ratio book card with Add to Cart & Buy
 │   ├── BookDetailModal.jsx           # Detailed book viewer with instant buy action
-│   ├── BookGrid.jsx                  # Responsive 1..4 column book card grid
+│   ├── BookGrid.jsx                  # Responsive 1..5 column fluid book card grid
 │   ├── BookModal.jsx                 # CRUD creation and modification modal
-│   ├── BuyBookModal.jsx              # Concurrency-safe atomic checkout dialog
+│   ├── BuyBookModal.jsx              # Concurrency-safe atomic checkout dialog with multi-payment choices
+│   ├── CartDrawer.jsx                # Slide-out shopping cart drawer (Stripe, bKash, Nagad, Rocket, COD)
 │   ├── ContactModal.jsx              # Contact Authority modal (routes to bipronathsaha@gmail.com)
 │   ├── DeleteConfirmModal.jsx        # Deletion confirmation modal
 │   ├── FilterBar.jsx                 # Horizontal category tabs & subcategory pills
 │   ├── HeroSection.jsx               # Digital bookstore hero, role CTAs, and live stats
-│   ├── Navbar.jsx                    # Header with logo, mega-dropdown, and mobile drawer
+│   ├── Navbar.jsx                    # Decongested desktop header & mobile responsive drawer with Cart pill
 │   ├── Pagination.jsx                # Sliding window pagination with ellipsis (for 200 pages)
 │   └── Toast.jsx                     # Non-intrusive floating alert notifications
 ├── context/
-│   └── AuthContext.jsx               # Auth state machine (user, token, login, logout, register)
+│   ├── AuthContext.jsx               # Auth state machine (user, token, login, logout, register)
+│   └── CartContext.jsx               # Cart state machine (items, quantities, subtotal, persistence)
 ├── services/
 │   └── api.js                        # Axios instance with auth interceptors & endpoint mappings
 ├── App.jsx                           # Application orchestrator & modal coordinator
@@ -43,17 +45,33 @@ frontend/src/
 
 ## 2. Component Hierarchy & Responsibilities
 
-### 2.1 `Navbar.jsx`
-- **Branding:** Displays `src/assets/projects/folioverse_logo.jpg` with a glowing border and live inventory status beacon.
-- **Desktop Navigation:**
-  - Category & subcategory mega-dropdown with hover transitions.
-  - Direct genre shortcuts: "🇧🇩 Bengali Literature", "🇬🇧 English Literature".
-  - Quick access buttons: "Contact Authority" and "Admin Dashboard".
-- **Mobile Responsive Drawer:**
-  - Activates on viewports $<1024\text{px}$ via animated hamburger toggle.
-  - Locks body scroll (`overflow: hidden`) during presentation.
-  - Presents role cards: **"Join as Buyer"** and **"Join as Seller"**.
-  - Provides quick action triggers: "Admin Dashboard", "Contact Authority", "List / Sell a Book", and "Browse Books to Buy".
+### 2.1 `Navbar.jsx` (Decongested Desktop & Mobile Responsive)
+- **Desktop Layout ($\ge 1024\text{px}$):**
+  - Decongested architecture eliminating horizontal crowding.
+  - **Left:** Official Logo with live stock indicator beacon (`2,000 In Stock`).
+  - **Center:** Mega-dropdown for genres with active filter indicators + clear pill, quick literature filters (Bengali & English), Dashboard and Contact links.
+  - **Right:** Standout **Cart trigger pill** with live item count badge and subtotal, **Sell a Book** button, and User Profile / Sign In controls.
+- **Mobile Responsive Drawer ($< 1024\text{px}$):**
+  - Proportional logo scaling, direct Cart button in header, and smooth animated hamburger toggle.
+  - Mobile slide-out drawer featuring bookstore status, role onboarding cards, quick dashboard/contact buttons, wrapped genre pills, and user authentication actions with full touch safety ($\ge 44\text{px}$).
+
+### 2.2 `CartDrawer.jsx` & `CartContext.jsx` (Shopping Cart & Multi-Payment Checkout)
+- **State Management (`CartContext.jsx`):**
+  - Persisted to browser `localStorage` (`folioverse_cart`).
+  - Manages quantities, stock clamps, removals, and subtotal calculation.
+- **Drawer UI (`CartDrawer.jsx`):**
+  - Slide-out presentation with smooth backdrop blur.
+  - Item list with book covers, titles, authors, quantity increment/decrement, and subtotal.
+  - **3 Payment Options:**
+    1. **Stripe (Credit / Debit Card):** Card number, expiry, CVC inputs with 256-bit encryption badge.
+    2. **Mobile Banking (bKash / Nagad / Rocket):** Provider tabs, merchant numbers (`01712-345678`), copyable merchant number button, reference instructions, and Transaction ID (TrxID) input.
+    3. **Cash on Delivery (COD):** No online payment required; doorstep cash handover with 2-3 day delivery notice.
+  - Places order to backend `/api/orders/` atomically and renders a verified order receipt with Order Number (`FV-ORD-...`), payment status, customer details, and purchased books.
+
+### 2.3 `BookCard.jsx` & Device Length / Ratio Scaling
+- **Portrait Golden Aspect Ratio ($3:4$):** Standard book dimensions prevent cover image stretching or squishing on all devices.
+- Uniform card heights across columns with flexbox column alignment.
+- Dual purchase pathways: "Add to Cart" (quick feedback) and "Buy" (instant checkout).
 
 ### 2.2 `HeroSection.jsx`
 - Replaces legacy multi-tenant SaaS text with digital book shop marketplace content.

@@ -103,3 +103,69 @@ class Book(models.Model):
 
     def __str__(self):
         return f"{self.title} by {self.author} [{self.category} / {self.subcategory}] - ${self.price} ({self.status})"
+
+
+class Order(models.Model):
+    """
+    Stores bookstore orders placed through single buy or multi-item cart checkout.
+    Supports Stripe, bKash, Nagad, Rocket, and Cash on Delivery (COD).
+    """
+    PAYMENT_CHOICES = [
+        ('stripe', 'Credit/Debit Card (Stripe)'),
+        ('bkash', 'bKash Mobile Banking'),
+        ('nagad', 'Nagad Mobile Banking'),
+        ('rocket', 'Rocket Mobile Banking'),
+        ('cod', 'Cash on Delivery (COD)'),
+    ]
+
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending Payment'),
+        ('paid', 'Paid'),
+        ('failed', 'Payment Failed'),
+    ]
+
+    ORDER_STATUS_CHOICES = [
+        ('confirmed', 'Order Confirmed'),
+        ('processing', 'Processing Shipment'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    order_number = models.CharField(max_length=64, unique=True, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
+    customer_name = models.CharField(max_length=255)
+    customer_email = models.EmailField()
+    customer_phone = models.CharField(max_length=50, blank=True, default='')
+    shipping_address = models.TextField()
+    payment_method = models.CharField(max_length=30, choices=PAYMENT_CHOICES, default='cod', db_index=True)
+    payment_status = models.CharField(max_length=30, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    transaction_id = models.CharField(max_length=100, blank=True, default='')
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=30, choices=ORDER_STATUS_CHOICES, default='confirmed')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-id']
+        verbose_name = 'Order'
+        verbose_name_plural = 'Orders'
+
+    def __str__(self):
+        return f"Order {self.order_number} - {self.customer_name} ({self.payment_method}) - ${self.total_amount}"
+
+
+class OrderItem(models.Model):
+    """
+    Line item inside an Order, capturing historical price and book snapshot at purchase.
+    """
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name='order_items')
+    title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField(default=1)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantity}x {self.title} (${self.subtotal})"

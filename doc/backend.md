@@ -176,19 +176,41 @@ Generates and bulk-inserts 2,000 production-ready books across all 5 genres:
 
 ---
 
-## 6. Automated Verification & Test Suite
+## 6. Order & Cart Checkout System (`Order`, `OrderItem`, `OrderViewSet`)
 
-The test suite in `backend/books/tests.py` verifies all requirements with 14 automated test cases:
+### 6.1 Database Schema
+- **`Order` Model**:
+  - `order_number`: Unique identifier (e.g., `FV-ORD-1792936212-2326`).
+  - `user`: Foreign key to `auth.User` (nullable for guest buyers).
+  - `customer_name`, `customer_email`, `customer_phone`, `shipping_address`.
+  - `payment_method`: `stripe`, `bkash`, `nagad`, `rocket`, `cod`.
+  - `payment_status`: `pending`, `paid`, `failed`.
+  - `transaction_id`: TrxID for mobile payments or charge ID for Stripe.
+  - `total_amount`: Total order charge.
+  - `status`: `confirmed`, `processing`, `shipped`, `delivered`, `cancelled`.
+- **`OrderItem` Model**:
+  - Line items capturing historical price, book reference, quantity, and subtotal.
+
+### 6.2 REST Endpoints
+- `POST /api/orders/`: Concurrency-safe atomic checkout across multiple items in cart. Locks books via `select_for_update()`, verifies stock, decrements inventory, and saves order.
+- `GET /api/orders/`: Lists live orders with items and payment statuses for Store Admin Dashboard.
+- `GET /api/orders/<id>/`: Detail view of single order.
+
+---
+
+## 7. Automated Verification & Test Suite
+
+The test suite in `backend/books/tests.py` verifies all requirements with **17 automated test cases**:
 ```bash
 python manage.py test books
 ```
 Output:
 ```
 Creating test database for alias 'default'...
-..............
-Ran 14 tests in 21.697s
+.................
+Ran 17 tests in 45.014s
 
 OK
 Destroying test database for alias 'default'...
 ```
-Tested behaviors include 10-item pagination, page 2 navigation, taxonomy endpoints, Bengali & English literature filtering, in-stock filtering, atomic buy action with inventory decrement, over-purchase stock rejection, unauthenticated rejection on write, authenticated creation, single item retrieval, PUT/PATCH updates, and price ordering.
+Tested behaviors include 10-item pagination, page 2 navigation, taxonomy endpoints, Bengali & English literature filtering, in-stock filtering, atomic single buy, multi-item cart order with Stripe payment, multi-item cart order with bKash mobile banking, multi-item cart order with Cash on Delivery (COD), inventory decrement, over-purchase stock rejection, unauthenticated rejection on write, authenticated creation, single item retrieval, PUT/PATCH updates, and price ordering.
