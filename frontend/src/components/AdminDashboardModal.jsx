@@ -145,11 +145,11 @@ export const AdminDashboardModal = ({
 
   // Recent simulated orders
   const recentOrders = [
-    { id: 'ORD-9821', book: 'Gitanjali (Song Offerings)', author: 'Rabindranath Tagore', qty: 2, amount: '$29.00', buyer: 'Tanvir Ahmed', time: '12 mins ago', status: 'Completed' },
-    { id: 'ORD-9820', book: 'Agnibeena (The Fiery Lute)', author: 'Kazi Nazrul Islam', qty: 1, amount: '$12.00', buyer: 'Sadia Rahman', time: '34 mins ago', status: 'Completed' },
-    { id: 'ORD-9819', book: 'Designing Data-Intensive Applications', author: 'Martin Kleppmann', qty: 1, amount: '$38.50', buyer: 'Rafiqul Islam', time: '1 hour ago', status: 'Completed' },
-    { id: 'ORD-9818', book: '1984', author: 'George Orwell', qty: 3, amount: '$41.97', buyer: 'Mehedi Hasan', time: '2 hours ago', status: 'Completed' },
-    { id: 'ORD-9817', book: 'Cosmos', author: 'Carl Sagan', qty: 1, amount: '$19.50', buyer: 'Nusrat Jahan', time: '3 hours ago', status: 'Completed' },
+    { id: 'ORD-9821', book: 'Gitanjali (Song Offerings)', author: 'Rabindranath Tagore', qty: 2, amount: '৳ 650.00', buyer: 'Tanvir Ahmed', time: '12 mins ago', status: 'Completed' },
+    { id: 'ORD-9820', book: 'Agnibeena (The Fiery Lute)', author: 'Kazi Nazrul Islam', qty: 1, amount: '৳ 350.00', buyer: 'Sadia Rahman', time: '34 mins ago', status: 'Completed' },
+    { id: 'ORD-9819', book: 'Designing Data-Intensive Applications', author: 'Martin Kleppmann', qty: 1, amount: '৳ 1,250.00', buyer: 'Rafiqul Islam', time: '1 hour ago', status: 'Completed' },
+    { id: 'ORD-9818', book: '1984', author: 'George Orwell', qty: 3, amount: '৳ 850.00', buyer: 'Mehedi Hasan', time: '2 hours ago', status: 'Completed' },
+    { id: 'ORD-9817', book: 'Cosmos', author: 'Carl Sagan', qty: 1, amount: '৳ 780.00', buyer: 'Nusrat Jahan', time: '3 hours ago', status: 'Completed' },
   ];
 
   return (
@@ -441,7 +441,7 @@ export const AdminDashboardModal = ({
                             by {book.author} • {book.subcategory}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="font-black text-emerald-400">${parseFloat(book.price).toFixed(2)}</span>
+                            <span className="font-black text-emerald-400">৳ {parseFloat(book.price).toFixed(2)}</span>
                             <span className="text-slate-600">•</span>
                             <span
                               className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
@@ -537,9 +537,7 @@ export const AdminDashboardModal = ({
                           {/* Payment Method Badge */}
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              ord.payment_method === 'stripe'
-                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                                : ord.payment_method === 'bkash'
+                              ord.payment_method === 'bkash'
                                 ? 'bg-pink-500/10 text-pink-400 border border-pink-500/30'
                                 : ord.payment_method === 'nagad'
                                 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
@@ -551,7 +549,7 @@ export const AdminDashboardModal = ({
                             {ord.payment_method}
                           </span>
                           <span className="font-black text-emerald-400 text-sm">
-                            ${parseFloat(ord.total_amount).toFixed(2)}
+                            ৳ {parseFloat(ord.total_amount).toFixed(2)}
                           </span>
                         </div>
                       </div>

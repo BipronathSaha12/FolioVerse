@@ -15,6 +15,7 @@ import { BuyBookModal } from './components/BuyBookModal';
 import { SellBookModal } from './components/SellBookModal';
 import { ContactModal } from './components/ContactModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
+import { BuyerDashboardModal } from './components/BuyerDashboardModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ToastContainer } from './components/Toast';
@@ -22,6 +23,7 @@ import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Phone } from 'luci
 
 function FolioVerseContent() {
   const { isAuthenticated } = useAuth();
+  const { openCart } = useCart();
 
   // Books state
   const [books, setBooks] = useState([]);
@@ -49,6 +51,7 @@ function FolioVerseContent() {
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
+  const [buyerDashboardOpen, setBuyerDashboardOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, book: null });
 
   // Cart toast sync
@@ -180,6 +183,7 @@ function FolioVerseContent() {
         onOpenSellBook={() => setSellModalOpen(true)}
         onOpenContact={() => setContactModalOpen(true)}
         onOpenDashboard={() => setAdminDashboardOpen(true)}
+        onOpenBuyerDashboard={() => setBuyerDashboardOpen(true)}
         onSelectCategory={(cat) => {
           setCategoryFilter(cat);
           setSubcategoryFilter('');
@@ -348,6 +352,21 @@ function FolioVerseContent() {
         totalBooksCount={totalBooks}
       />
 
+      {/* Dedicated Buyer Account & Orders Portal */}
+      <BuyerDashboardModal
+        isOpen={buyerDashboardOpen}
+        onClose={() => setBuyerDashboardOpen(false)}
+        onOpenCart={() => {
+          setBuyerDashboardOpen(false);
+          openCart();
+        }}
+        onBrowseCatalog={() => {
+          setBuyerDashboardOpen(false);
+          const catalogEl = document.getElementById('catalog');
+          if (catalogEl) catalogEl.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
       {/* Book Detail Modal with Instant Buy Button */}
       <BookDetailModal
         isOpen={detailModal.open}
@@ -397,7 +416,7 @@ function FolioVerseContent() {
         onSuccess={(msg) => addToast(msg, 'success', 'Authenticated')}
       />
 
-      {/* Slide-out Cart Drawer with Multi-Option Checkout (Stripe, bKash, Nagad, Rocket, COD) */}
+      {/* Slide-out Cart Drawer with Multi-Option Checkout (bKash, Nagad, Rocket, COD) */}
       <CartDrawer
         onOrderPlaced={(order) => {
           addToast(`Order #${order.order_number} successfully placed!`, 'success', 'Order Confirmed');

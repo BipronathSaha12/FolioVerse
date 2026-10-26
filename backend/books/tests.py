@@ -305,9 +305,9 @@ class BookStoreAPITests(TestCase):
         desc_prices = [float(b['price']) for b in desc_res.data['results']]
         self.assertEqual(desc_prices, sorted(desc_prices, reverse=True))
 
-    def test_create_order_cart_stripe(self):
+    def test_create_order_cart_nagad(self):
         """
-        Test multi-item Cart purchase with Stripe Card Payment.
+        Test multi-item Cart purchase with Nagad Mobile Banking.
         """
         b1 = self.books[0]
         b2 = self.books[1]
@@ -316,8 +316,8 @@ class BookStoreAPITests(TestCase):
             "customer_email": "rahim@example.com",
             "customer_phone": "+8801712345678",
             "shipping_address": "House 12, Road 5, Dhanmondi, Dhaka",
-            "payment_method": "stripe",
-            "transaction_id": "ch_mock_stripe_987654",
+            "payment_method": "nagad",
+            "transaction_id": "NAGAD-TXN-987654",
             "items": [
                 {"book_id": b1.id, "quantity": 1},
                 {"book_id": b2.id, "quantity": 2},
@@ -325,7 +325,7 @@ class BookStoreAPITests(TestCase):
         }
         res = self.client.post('/api/orders/', payload, format='json')
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(res.data['payment_method'], 'stripe')
+        self.assertEqual(res.data['payment_method'], 'nagad')
         self.assertEqual(res.data['payment_status'], 'paid')
         self.assertEqual(len(res.data['items']), 2)
 

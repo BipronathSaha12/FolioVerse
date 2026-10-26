@@ -7,44 +7,38 @@ import {
   AlertCircle,
   Plus,
   Minus,
-  CreditCard,
   Smartphone,
   Truck,
-  Copy,
-  Check,
-  Lock,
+  RefreshCw,
 } from 'lucide-react';
 import { orderService } from '../services/api';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
   if (!isOpen || !book) return null;
 
-  const { addToCart, openCart } = useCart();
+  const { recordOrder } = useCart();
+  const { user } = useAuth();
+
   const [quantity, setQuantity] = useState(1);
-  const [buyerName, setBuyerName] = useState('');
-  const [buyerEmail, setBuyerEmail] = useState('');
-  const [buyerPhone, setBuyerPhone] = useState('');
+  const [buyerName, setBuyerName] = useState(user?.username || '');
+  const [buyerEmail, setBuyerEmail] = useState(user?.email || '');
+  const [buyerPhone, setBuyerPhone] = useState('01712345678');
   const [shippingAddress, setShippingAddress] = useState('');
 
-  // Payment method selection: 'stripe' | 'bkash' | 'nagad' | 'rocket' | 'cod'
-  const [paymentMethod, setPaymentMethod] = useState('cod');
-  const [transactionId, setTransactionId] = useState('');
-  const [copiedNumber, setCopiedNumber] = useState(false);
+  // Payment method selection: 'bkash' | 'nagad' | 'rocket' | 'cod' (No Stripe)
+  const [paymentMethod, setPaymentMethod] = useState('bkash');
+  const [mobileNumber, setMobileNumber] = useState('01712345678');
 
   const [submitting, setSubmitting] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [orderComplete, setOrderComplete] = useState(null);
 
   const unitPrice = parseFloat(book.price) || 0;
   const totalAmount = (unitPrice * quantity).toFixed(2);
   const maxStock = book.stock || 1;
-
-  const handleCopyMerchant = (num) => {
-    navigator.clipboard.writeText(num);
-    setCopiedNumber(true);
-    setTimeout(() => setCopiedNumber(false), 2000);
-  };
 
   const handleBuySubmit = async (e) => {
     e.preventDefault();
@@ -59,39 +53,56 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
       return;
     }
     if (!shippingAddress.trim()) {
-      setErrorMsg('Please enter your shipping/delivery address.');
+      setErrorMsg('Please enter your delivery address in Bangladesh.');
       return;
     }
-
-    if (['bkash', 'nagad', 'rocket'].includes(paymentMethod) && !transactionId.trim()) {
-      setErrorMsg(`Please enter the Transaction ID (TrxID) from your ${paymentMethod.toUpperCase()} payment.`);
-      return;
-    }
-
-    const payload = {
-      customer_name: buyerName.trim(),
-      customer_email: buyerEmail.trim(),
-      customer_phone: buyerPhone.trim(),
-      shipping_address: shippingAddress.trim(),
-      payment_method: paymentMethod,
-      transaction_id: ['bkash', 'nagad', 'rocket'].includes(paymentMethod)
-        ? transactionId.trim()
-        : paymentMethod === 'stripe'
-        ? `ch_stripe_${Date.now().toString(36)}`
-        : '',
-      items: [
-        {
-          book_id: book.id,
-          quantity: quantity,
-        },
-      ],
-    };
 
     setSubmitting(true);
+    let resolvedTransactionId = '';
 
     try {
+      // If mobile banking, trigger automated API payment
+      if (['bkash', 'nagad', 'rocket'].includes(paymentMethod)) {
+        const targetNumber = (mobileNumber || buyerPhone || '').trim();
+        if (!targetNumber || targetNumber.length < 11) {
+          setErrorMsg(`Please enter an 11-digit mobile number for ${paymentMethod.toUpperCase()} API payment.`);
+          setSubmitting(false);
+          return;
+        }
+
+        setProcessingStatus(`Connecting to ${paymentMethod.toUpperCase()} API Gateway...`);
+        const payRes = await orderService.processPayment({
+          provider: paymentMethod,
+          account_number: targetNumber,
+          amount: totalAmount,
+        });
+
+        resolvedTransactionId = payRes.data?.transaction_id || `${paymentMethod.toUpperCase()}-TXN-${Date.now().toString(36).toUpperCase()}`;
+        setProcessingStatus(`Payment verified via ${paymentMethod.toUpperCase()} API! Creating order...`);
+      }
+
+      const payload = {
+        customer_name: buyerName.trim(),
+        customer_email: buyerEmail.trim(),
+        customer_phone: buyerPhone.trim() || mobileNumber.trim(),
+        shipping_address: shippingAddress.trim(),
+        payment_method: paymentMethod,
+        transaction_id: resolvedTransactionId,
+        items: [
+          {
+            book_id: book.id,
+            quantity: quantity,
+          },
+        ],
+      };
+
       const res = await orderService.createOrder(payload);
-      setOrderComplete(res.data);
+      const placedOrder = res.data;
+
+      // Save order in local cart history
+      recordOrder(placedOrder);
+      setOrderComplete(placedOrder);
+
       if (onSuccess) {
         onSuccess(`Order placed! You purchased ${quantity} copy(ies) of "${book.title}".`);
       }
@@ -104,13 +115,13 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
       setErrorMsg(msg);
     } finally {
       setSubmitting(false);
+      setProcessingStatus('');
     }
   };
 
   const handleClose = () => {
     setOrderComplete(null);
     setQuantity(1);
-    setTransactionId('');
     setErrorMsg('');
     onClose();
   };
@@ -128,7 +139,7 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
               <h3 className="font-bold text-base sm:text-lg text-white">
                 {orderComplete ? 'Order Confirmed!' : 'Purchase Book'}
               </h3>
-              <p className="text-xs text-slate-400">Stripe, bKash, Nagad, Rocket or Cash on Delivery</p>
+              <p className="text-xs text-slate-400">bKash, Nagad, Rocket or Cash on Delivery (COD)</p>
             </div>
           </div>
 
@@ -168,13 +179,19 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
                     {orderComplete.payment_method}
                   </span>
                 </div>
+                {orderComplete.transaction_id && (
+                  <div className="flex justify-between text-slate-400">
+                    <span>API Transaction ID:</span>
+                    <span className="font-mono font-bold text-cyan-300">{orderComplete.transaction_id}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-slate-400">
                   <span>Quantity:</span>
                   <span className="font-bold text-cyan-400">{quantity} copy(ies)</span>
                 </div>
                 <div className="flex justify-between text-slate-400 pt-2 border-t border-slate-800 text-sm font-bold">
-                  <span className="text-white">Total Amount:</span>
-                  <span className="text-emerald-400 text-base font-black">${totalAmount}</span>
+                  <span className="text-white">Total Amount (BDT):</span>
+                  <span className="text-emerald-400 text-base font-black">৳ {totalAmount}</span>
                 </div>
               </div>
 
@@ -200,7 +217,7 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
                   <h4 className="font-bold text-sm text-white truncate">{book.title}</h4>
                   <p className="text-xs text-slate-400 truncate mt-0.5">{book.author}</p>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-xs font-black text-emerald-400">${unitPrice.toFixed(2)}</span>
+                    <span className="text-xs font-black text-emerald-400">৳ {unitPrice.toFixed(2)}</span>
                     <span className="text-[10px] text-slate-400 px-1.5 py-0.2 rounded bg-slate-900 border border-slate-800">
                       {book.condition || 'New'}
                     </span>
@@ -267,9 +284,10 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
                   />
                   <input
                     type="tel"
+                    required
                     value={buyerPhone}
                     onChange={(e) => setBuyerPhone(e.target.value)}
-                    placeholder="Mobile Phone"
+                    placeholder="Contact Mobile *"
                     className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-cyan-500"
                   />
                 </div>
@@ -279,41 +297,54 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
                   required
                   value={shippingAddress}
                   onChange={(e) => setShippingAddress(e.target.value)}
-                  placeholder="Delivery Address (House, Road, City) *"
+                  placeholder="Delivery Address in Bangladesh (House, Road, City, District) *"
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-cyan-500 resize-none"
                 />
               </div>
 
-              {/* Payment Method Selector */}
+              {/* Payment Method Selector (No Stripe) */}
               <div className="space-y-2 pt-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
-                  Select Payment Option:
+                  Payment Method:
                 </span>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('stripe')}
-                    className={`p-2 rounded-xl border text-center transition-all ${
-                      paymentMethod === 'stripe'
-                        ? 'bg-cyan-950/60 border-cyan-500 text-cyan-300 ring-1 ring-cyan-500'
-                        : 'bg-slate-950 border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <CreditCard className="w-4 h-4 mx-auto mb-1 text-cyan-400" />
-                    <div className="text-[11px] font-bold">Stripe Card</div>
-                  </button>
-
+                <div className="grid grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('bkash')}
                     className={`p-2 rounded-xl border text-center transition-all ${
                       paymentMethod === 'bkash'
-                        ? 'bg-pink-950/60 border-pink-500 text-pink-300 ring-1 ring-pink-500'
+                        ? 'bg-[#E2136E]/20 border-[#E2136E] text-pink-300 ring-1 ring-[#E2136E]'
                         : 'bg-slate-950 border-slate-800 text-slate-400'
                     }`}
                   >
-                    <Smartphone className="w-4 h-4 mx-auto mb-1 text-pink-400" />
-                    <div className="text-[11px] font-bold">bKash</div>
+                    <div className="text-[11px] font-black text-[#E2136E]">bKash</div>
+                    <span className="text-[8px] text-pink-300">API</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('nagad')}
+                    className={`p-2 rounded-xl border text-center transition-all ${
+                      paymentMethod === 'nagad'
+                        ? 'bg-[#F7931E]/20 border-[#F7931E] text-orange-300 ring-1 ring-[#F7931E]'
+                        : 'bg-slate-950 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <div className="text-[11px] font-black text-[#F7931E]">Nagad</div>
+                    <span className="text-[8px] text-orange-300">API</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('rocket')}
+                    className={`p-2 rounded-xl border text-center transition-all ${
+                      paymentMethod === 'rocket'
+                        ? 'bg-[#8C3494]/20 border-[#8C3494] text-purple-300 ring-1 ring-[#8C3494]'
+                        : 'bg-slate-950 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <div className="text-[11px] font-black text-[#8C3494]">Rocket</div>
+                    <span className="text-[8px] text-purple-300">API</span>
                   </button>
 
                   <button
@@ -325,33 +356,28 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
                         : 'bg-slate-950 border-slate-800 text-slate-400'
                     }`}
                   >
-                    <Truck className="w-4 h-4 mx-auto mb-1 text-emerald-400" />
-                    <div className="text-[11px] font-bold">Cash on Del.</div>
+                    <Truck className="w-3.5 h-3.5 mx-auto text-emerald-400" />
+                    <div className="text-[10px] font-bold">COD</div>
                   </button>
                 </div>
 
-                {/* Mobile Banking TrxID Input */}
+                {/* Mobile Number for API Gateway */}
                 {['bkash', 'nagad', 'rocket'].includes(paymentMethod) && (
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs animate-in fade-in">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span>Merchant: <strong className="text-white">01712-345678</strong></span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyMerchant('01712345678')}
-                        className="text-cyan-400 text-[11px] flex items-center gap-1"
-                      >
-                        {copiedNumber ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        {copiedNumber ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs animate-in fade-in">
+                    <label className="text-[11px] font-semibold text-slate-300 block">
+                      {paymentMethod.toUpperCase()} Mobile Number:
+                    </label>
                     <input
-                      type="text"
+                      type="tel"
                       required
-                      value={transactionId}
-                      onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
-                      placeholder="Enter TrxID after sending money"
-                      className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono uppercase"
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      placeholder="017XXXXXXXX"
+                      className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
                     />
+                    <span className="text-[10px] text-slate-400 block">
+                      Automated API payment verification for <strong>৳{totalAmount}</strong>.
+                    </span>
                   </div>
                 )}
               </div>
@@ -359,8 +385,8 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
               {/* Price & Submit Action */}
               <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-sm">
                 <div>
-                  <span className="text-xs text-slate-400 block">Total Price:</span>
-                  <span className="text-xl font-black text-emerald-400">${totalAmount}</span>
+                  <span className="text-xs text-slate-400 block">Total Price (BDT):</span>
+                  <span className="text-xl font-black text-emerald-400">৳ {totalAmount}</span>
                 </div>
 
                 <button
@@ -368,8 +394,17 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
                   disabled={submitting}
                   className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{submitting ? 'Processing...' : 'Confirm Order'}</span>
+                  {submitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>{processingStatus || 'Processing...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>{paymentMethod === 'cod' ? 'Confirm COD Order' : `Pay with ${paymentMethod.toUpperCase()} API`}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

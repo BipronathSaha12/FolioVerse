@@ -30,6 +30,7 @@ export const Navbar = ({
   onOpenSellBook,
   onOpenContact,
   onOpenDashboard,
+  onOpenBuyerDashboard,
   onSelectCategory,
   onSelectSubcategory,
   selectedCategory,
@@ -37,7 +38,7 @@ export const Navbar = ({
   apiConnected,
   bookCount,
 }) => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isBuyer, logout } = useAuth();
   const { totalItems, subtotal, openCart } = useCart();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -362,7 +363,7 @@ export const Navbar = ({
               <span className="text-xs font-bold text-slate-200">Cart</span>
               {totalItems > 0 && (
                 <span className="text-xs font-extrabold text-emerald-400 pl-1 border-l border-slate-700">
-                  ${subtotal.toFixed(2)}
+                  ৳ {subtotal.toFixed(2)}
                 </span>
               )}
             </button>
@@ -380,19 +381,19 @@ export const Navbar = ({
             {isAuthenticated ? (
               <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
                 <button
-                  onClick={onOpenDashboard}
+                  onClick={isAdmin ? onOpenDashboard : onOpenBuyerDashboard}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition-colors"
-                  title="Open Admin Dashboard"
+                  title={isAdmin ? "Open Store Admin Dashboard" : "Open Buyer Account Portal & Orders"}
                 >
-                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                    <User className="w-3.5 h-3.5" />
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isAdmin ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                    {isAdmin ? <Shield className="w-3.5 h-3.5" /> : <ShoppingBag className="w-3.5 h-3.5" />}
                   </div>
-                  <div className="truncate max-w-[100px]">
+                  <div className="truncate max-w-[110px]">
                     <div className="text-xs font-semibold text-white truncate leading-tight">
                       {user?.username}
                     </div>
-                    <div className="text-[9px] text-emerald-400 flex items-center gap-0.5">
-                      <CheckCircle2 className="w-2.5 h-2.5" /> Verified
+                    <div className={`text-[9px] flex items-center gap-0.5 ${isAdmin ? 'text-purple-400 font-bold' : 'text-emerald-400'}`}>
+                      <CheckCircle2 className="w-2.5 h-2.5" /> {isAdmin ? 'Admin' : 'Buyer'}
                     </div>
                   </div>
                 </button>
@@ -523,7 +524,7 @@ export const Navbar = ({
                   <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-xs">
                     {totalItems} items
                   </span>
-                  <span className="text-xs font-bold text-emerald-400">${subtotal.toFixed(2)}</span>
+                  <span className="text-xs font-bold text-emerald-400">৳{subtotal.toFixed(2)}</span>
                 </div>
               </button>
 
@@ -666,17 +667,24 @@ export const Navbar = ({
 
                 {isAuthenticated ? (
                   <div className="flex items-center justify-between bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                        <User className="w-4 h-4" />
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (isAdmin) onOpenDashboard();
+                        else onOpenBuyerDashboard();
+                      }}
+                      className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-90"
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isAdmin ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                        {isAdmin ? <Shield className="w-4 h-4" /> : <ShoppingBag className="w-4 h-4" />}
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-white truncate">{user?.username}</div>
-                        <div className="text-[10px] text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Signed In
+                        <div className={`text-[10px] flex items-center gap-1 ${isAdmin ? 'text-purple-400 font-bold' : 'text-emerald-400'}`}>
+                          <CheckCircle2 className="w-3 h-3" /> {isAdmin ? 'Store Admin' : 'Buyer Portal'}
                         </div>
                       </div>
-                    </div>
+                    </button>
                     <button
                       onClick={() => {
                         setMobileMenuOpen(false);

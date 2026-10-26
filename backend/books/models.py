@@ -102,16 +102,15 @@ class Book(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.title} by {self.author} [{self.category} / {self.subcategory}] - ${self.price} ({self.status})"
+        return f"{self.title} by {self.author} [{self.category} / {self.subcategory}] - ৳{self.price} ({self.status})"
 
 
 class Order(models.Model):
     """
     Stores bookstore orders placed through single buy or multi-item cart checkout.
-    Supports Stripe, bKash, Nagad, Rocket, and Cash on Delivery (COD).
+    Supports bKash, Nagad, Rocket, and Cash on Delivery (COD).
     """
     PAYMENT_CHOICES = [
-        ('stripe', 'Credit/Debit Card (Stripe)'),
         ('bkash', 'bKash Mobile Banking'),
         ('nagad', 'Nagad Mobile Banking'),
         ('rocket', 'Rocket Mobile Banking'),
@@ -152,7 +151,7 @@ class Order(models.Model):
         verbose_name_plural = 'Orders'
 
     def __str__(self):
-        return f"Order {self.order_number} - {self.customer_name} ({self.payment_method}) - ${self.total_amount}"
+        return f"Order {self.order_number} - {self.customer_name} ({self.payment_method}) - ৳{self.total_amount}"
 
 
 class OrderItem(models.Model):
@@ -168,7 +167,7 @@ class OrderItem(models.Model):
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
 
     def __str__(self):
-        return f"{self.quantity}x {self.title} (${self.subtotal})"
+        return f"{self.quantity}x {self.title} (৳{self.subtotal})"
 
 
 class ContactInquiry(models.Model):

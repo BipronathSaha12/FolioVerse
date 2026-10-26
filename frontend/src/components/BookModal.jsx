@@ -296,11 +296,11 @@ export const BookModal = ({ isOpen, onClose, bookToEdit, onSuccess }) => {
             {/* Price Field */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Price (USD) <span className="text-rose-400">*</span>
+                Price (BDT ৳) <span className="text-rose-400">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <DollarSign className="w-4 h-4" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
+                  ৳
                 </div>
                 <input
                   type="number"
@@ -309,8 +309,8 @@ export const BookModal = ({ isOpen, onClose, bookToEdit, onSuccess }) => {
                   required
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  placeholder="14.99"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500"
+                  placeholder="350.00"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
             </div>

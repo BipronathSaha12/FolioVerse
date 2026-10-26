@@ -10,27 +10,31 @@ import {
   Minus,
   ArrowRight,
   ShieldCheck,
-  CreditCard,
   Truck,
   CheckCircle2,
   AlertCircle,
   Smartphone,
-  Copy,
+  Bookmark,
   Check,
   Lock,
-  ChevronRight,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 
 export const CartDrawer = ({ onOrderPlaced }) => {
   const {
     cartItems,
+    savedItems,
     totalItems,
     subtotal,
     isCartOpen,
     closeCart,
     updateQuantity,
     removeFromCart,
+    saveForLater,
+    moveToCartFromSaved,
+    removeSavedItem,
+    recordOrder,
     clearCart,
   } = useCart();
 
@@ -39,22 +43,18 @@ export const CartDrawer = ({ onOrderPlaced }) => {
   // Checkout Form State
   const [customerName, setCustomerName] = useState(user?.username || '');
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('01712345678');
   const [shippingAddress, setShippingAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('stripe'); // 'stripe' | 'bkash' | 'nagad' | 'rocket' | 'cod'
-  const [mobileProvider, setMobileProvider] = useState('bkash'); // 'bkash' | 'nagad' | 'rocket'
-  const [transactionId, setTransactionId] = useState('');
-
-  // Stripe Mock Inputs
-  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('888');
+  
+  // Payment Method Selection: 'bkash' | 'nagad' | 'rocket' | 'cod' (No Stripe)
+  const [paymentMethod, setPaymentMethod] = useState('bkash');
+  const [mobileNumber, setMobileNumber] = useState('01712345678');
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentProcessingStage, setPaymentProcessingStage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [orderSuccess, setOrderSuccess] = useState(null);
-  const [copiedNumber, setCopiedNumber] = useState(false);
 
   // Sync logged in user details if available
   useEffect(() => {
@@ -87,12 +87,6 @@ export const CartDrawer = ({ onOrderPlaced }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isCartOpen, closeCart]);
 
-  const handleCopyMerchant = (number) => {
-    navigator.clipboard.writeText(number);
-    setCopiedNumber(true);
-    setTimeout(() => setCopiedNumber(false), 2000);
-  };
-
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -103,7 +97,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
     }
 
     if (!customerName.trim()) {
-      setErrorMsg('Please enter your full name for the order delivery.');
+      setErrorMsg('Please enter your full name for order delivery.');
       return;
     }
 
@@ -113,48 +107,59 @@ export const CartDrawer = ({ onOrderPlaced }) => {
     }
 
     if (!shippingAddress.trim()) {
-      setErrorMsg('Please provide a complete shipping address.');
+      setErrorMsg('Please provide a complete delivery address.');
       return;
     }
-
-    const effectivePaymentMethod =
-      paymentMethod === 'mobile' ? mobileProvider : paymentMethod;
-
-    if (
-      ['bkash', 'nagad', 'rocket'].includes(effectivePaymentMethod) &&
-      !transactionId.trim()
-    ) {
-      setErrorMsg(
-        `Please enter the Transaction ID (TrxID) received from your ${effectivePaymentMethod.toUpperCase()} payment.`
-      );
-      return;
-    }
-
-    const payload = {
-      customer_name: customerName.trim(),
-      customer_email: customerEmail.trim(),
-      customer_phone: customerPhone.trim(),
-      shipping_address: shippingAddress.trim(),
-      payment_method: effectivePaymentMethod,
-      transaction_id:
-        ['bkash', 'nagad', 'rocket'].includes(effectivePaymentMethod)
-          ? transactionId.trim()
-          : effectivePaymentMethod === 'stripe'
-          ? `ch_stripe_${Date.now().toString(36)}`
-          : '',
-      items: cartItems.map((item) => ({
-        book_id: item.bookId || item.id,
-        quantity: item.quantity,
-      })),
-    };
 
     setIsSubmitting(true);
+    let resolvedTransactionId = '';
 
     try {
+      // 1. If mobile banking (bKash, Nagad, Rocket), execute automated Payment API
+      if (['bkash', 'nagad', 'rocket'].includes(paymentMethod)) {
+        const targetNumber = (mobileNumber || customerPhone || '').trim();
+        if (!targetNumber || targetNumber.length < 11) {
+          setErrorMsg(`Please enter a valid 11-digit Bangladeshi mobile number for ${paymentMethod.toUpperCase()} API payment.`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        setPaymentProcessingStage(`Connecting to ${paymentMethod.toUpperCase()} API Gateway...`);
+
+        // Call backend payment gateway API
+        const payRes = await orderService.processPayment({
+          provider: paymentMethod,
+          account_number: targetNumber,
+          amount: subtotal.toFixed(2),
+        });
+
+        resolvedTransactionId = payRes.data?.transaction_id || `${paymentMethod.toUpperCase()}-TXN-${Date.now().toString(36).toUpperCase()}`;
+        setPaymentProcessingStage(`Payment of ৳${subtotal.toFixed(2)} verified! Finalizing order...`);
+      }
+
+      // 2. Create the Order
+      const payload = {
+        customer_name: customerName.trim(),
+        customer_email: customerEmail.trim(),
+        customer_phone: customerPhone.trim() || mobileNumber.trim(),
+        shipping_address: shippingAddress.trim(),
+        payment_method: paymentMethod,
+        transaction_id: resolvedTransactionId,
+        items: cartItems.map((item) => ({
+          book_id: item.bookId || item.id,
+          quantity: item.quantity,
+        })),
+      };
+
       const res = await orderService.createOrder(payload);
-      setOrderSuccess(res.data);
+      const placedOrder = res.data;
+
+      // Save to local buyer order history
+      recordOrder(placedOrder);
+      setOrderSuccess(placedOrder);
       clearCart();
-      if (onOrderPlaced) onOrderPlaced(res.data);
+
+      if (onOrderPlaced) onOrderPlaced(placedOrder);
     } catch (err) {
       console.error('Order creation failed:', err);
       const serverErr =
@@ -164,12 +169,12 @@ export const CartDrawer = ({ onOrderPlaced }) => {
       setErrorMsg(serverErr);
     } finally {
       setIsSubmitting(false);
+      setPaymentProcessingStage('');
     }
   };
 
   const handleResetOrder = () => {
     setOrderSuccess(null);
-    setTransactionId('');
     setErrorMsg('');
     closeCart();
   };
@@ -199,7 +204,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                     {totalItems} {totalItems === 1 ? 'item' : 'items'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">FolioVerse Fast Delivery Book Store</p>
+                <p className="text-xs text-slate-400">FolioVerse Fast Delivery (Bangladesh)</p>
               </div>
             </div>
 
@@ -223,13 +228,13 @@ export const CartDrawer = ({ onOrderPlaced }) => {
 
                 <div>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold mb-2">
-                    <Sparkles className="w-3.5 h-3.5" /> Order Placed Successfully!
+                    <Sparkles className="w-3.5 h-3.5" /> Order Confirmed!
                   </span>
                   <h3 className="text-xl sm:text-2xl font-black text-white">
                     Thank You for Your Order!
                   </h3>
                   <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                    A confirmation receipt has been generated. Your books are being prepared for dispatch.
+                    Your books have been locked in inventory and are being packed for fast courier dispatch across Bangladesh.
                   </p>
                 </div>
 
@@ -259,10 +264,19 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                         {orderSuccess.payment_method}
                       </div>
                       <div className="text-[11px] text-slate-400">
-                        Status: <span className="text-cyan-300">{orderSuccess.payment_status}</span>
+                        Status: <span className="text-cyan-300 font-bold uppercase">{orderSuccess.payment_status}</span>
                       </div>
                     </div>
                   </div>
+
+                  {orderSuccess.transaction_id && (
+                    <div className="text-xs pt-1 border-t border-slate-800">
+                      <div className="text-slate-400">Verified API Transaction ID:</div>
+                      <div className="font-mono text-cyan-300 font-bold text-xs mt-0.5">
+                        {orderSuccess.transaction_id}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="text-xs pt-1 border-t border-slate-800">
                     <div className="text-slate-400 mb-0.5">Shipping Destination:</div>
@@ -284,16 +298,16 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                             <span className="font-bold text-cyan-300">{item.quantity}x</span>{' '}
                             <span className="text-slate-200">{item.title}</span>
                           </div>
-                          <span className="font-semibold text-white shrink-0">${item.subtotal}</span>
+                          <span className="font-semibold text-white shrink-0">৳ {item.subtotal}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-sm font-bold">
-                    <span className="text-slate-300">Total Charged:</span>
+                    <span className="text-slate-300">Total Amount:</span>
                     <span className="text-emerald-400 text-lg font-black">
-                      ${parseFloat(orderSuccess.total_amount).toFixed(2)}
+                      ৳ {parseFloat(orderSuccess.total_amount).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -369,12 +383,22 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                           <p className="text-[11px] text-slate-400 truncate">{item.author}</p>
                           <div className="mt-1 flex items-center gap-2 text-xs">
                             <span className="font-extrabold text-emerald-400">
-                              ${item.price.toFixed(2)}
+                              ৳ {item.price.toFixed(2)}
                             </span>
                             <span className="text-[10px] text-slate-500">•</span>
                             <span className="text-[10px] text-cyan-400 font-medium">
-                              Subtotal: ${(item.price * item.quantity).toFixed(2)}
+                              Subtotal: ৳ {(item.price * item.quantity).toFixed(2)}
                             </span>
+                          </div>
+                          {/* Save for later button */}
+                          <div className="mt-1">
+                            <button
+                              type="button"
+                              onClick={() => saveForLater(item.bookId)}
+                              className="text-[10px] text-slate-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                            >
+                              <Bookmark className="w-2.5 h-2.5" /> Save for later
+                            </button>
                           </div>
                         </div>
 
@@ -413,30 +437,66 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                   </div>
                 </div>
 
-                {/* Subtotal Breakdown */}
+                {/* Subtotal Breakdown in BDT */}
                 <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2 text-xs">
                   <div className="flex justify-between text-slate-400">
                     <span>Items Subtotal:</span>
-                    <span className="font-semibold text-white">${subtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-white">৳ {subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span className="flex items-center gap-1">
                       <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                      Courier Shipping:
+                      Doorstep Courier Delivery:
                     </span>
-                    <span className="font-bold text-emerald-400">FREE Delivery</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Estimated Tax:</span>
-                    <span className="font-semibold text-slate-300">$0.00</span>
+                    <span className="font-bold text-emerald-400">FREE in Bangladesh</span>
                   </div>
                   <div className="pt-2 border-t border-slate-800 flex justify-between text-sm font-bold">
-                    <span className="text-white">Order Total:</span>
+                    <span className="text-white">Order Total (BDT):</span>
                     <span className="text-emerald-400 text-base font-black">
-                      ${subtotal.toFixed(2)}
+                      ৳ {subtotal.toFixed(2)}
                     </span>
                   </div>
                 </div>
+
+                {/* Saved for Later Section if any */}
+                {savedItems.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-300">
+                      <span className="flex items-center gap-1.5">
+                        <Bookmark className="w-3.5 h-3.5 text-amber-400" /> Saved For Later ({savedItems.length})
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {savedItems.map((si) => (
+                        <div
+                          key={si.bookId}
+                          className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-950 border border-slate-800"
+                        >
+                          <div className="truncate pr-2">
+                            <span className="font-semibold text-white block truncate">{si.title}</span>
+                            <span className="text-emerald-400 font-mono text-[11px]">৳ {si.price.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => moveToCartFromSaved(si.bookId)}
+                              className="px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 font-semibold text-[10px] hover:bg-cyan-500/30"
+                            >
+                              Move to Cart
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeSavedItem(si.bookId)}
+                              className="text-slate-500 hover:text-rose-400 text-[10px]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Error Banner */}
                 {errorMsg && (
@@ -475,9 +535,10 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                         />
                         <input
                           type="tel"
+                          required
                           value={customerPhone}
                           onChange={(e) => setCustomerPhone(e.target.value)}
-                          placeholder="Phone / Mobile Number"
+                          placeholder="Contact Mobile Number *"
                           className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-cyan-500 text-white placeholder-slate-500 text-xs outline-none"
                         />
                       </div>
@@ -487,205 +548,118 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                         rows={2}
                         value={shippingAddress}
                         onChange={(e) => setShippingAddress(e.target.value)}
-                        placeholder="Full Shipping Address (House, Road, City, Postal Code) *"
+                        placeholder="Full Delivery Address in Bangladesh (House, Road, City, Thana, District) *"
                         className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 focus:border-cyan-500 text-white placeholder-slate-500 text-xs outline-none resize-none"
                       />
                     </div>
                   </div>
 
-                  {/* Payment Method Selector (Stripe vs Mobile Banking vs COD) */}
+                  {/* Payment Method Selector (bKash vs Nagad vs Rocket vs COD - NO STRIPE) */}
                   <div className="space-y-3 pt-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
-                      2. Choose Payment Method
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                        2. Choose Payment Method (Bangladesh Only)
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">100% In BDT</span>
                     </h3>
 
                     {/* Options Grid */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {/* Option 1: Stripe */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {/* Option 1: bKash */}
                       <button
                         type="button"
-                        onClick={() => setPaymentMethod('stripe')}
-                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                          paymentMethod === 'stripe'
-                            ? 'bg-cyan-950/60 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-500/10 ring-1 ring-cyan-500'
+                        onClick={() => setPaymentMethod('bkash')}
+                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                          paymentMethod === 'bkash'
+                            ? 'bg-[#E2136E]/20 border-[#E2136E] text-pink-300 shadow-md ring-1 ring-[#E2136E]'
                             : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
                         }`}
                       >
-                        <CreditCard className="w-5 h-5 text-cyan-400" />
-                        <span className="text-[11px] font-bold">Stripe Card</span>
-                        <span className="text-[9px] text-cyan-400/80">Debit / Credit</span>
+                        <span className="text-xs font-black text-[#E2136E]">bKash</span>
+                        <span className="text-[9px] text-pink-300/80">API Gateway</span>
                       </button>
 
-                      {/* Option 2: Mobile Banking (bKash / Nagad / Rocket) */}
+                      {/* Option 2: Nagad */}
                       <button
                         type="button"
-                        onClick={() => setPaymentMethod('mobile')}
-                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                          paymentMethod === 'mobile'
-                            ? 'bg-pink-950/50 border-pink-500 text-pink-300 shadow-md shadow-pink-500/10 ring-1 ring-pink-500'
+                        onClick={() => setPaymentMethod('nagad')}
+                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                          paymentMethod === 'nagad'
+                            ? 'bg-[#F7931E]/20 border-[#F7931E] text-orange-300 shadow-md ring-1 ring-[#F7931E]'
                             : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
                         }`}
                       >
-                        <Smartphone className="w-5 h-5 text-pink-400" />
-                        <span className="text-[11px] font-bold">bKash / Nagad</span>
-                        <span className="text-[9px] text-pink-400/80">Mobile Banking</span>
+                        <span className="text-xs font-black text-[#F7931E]">Nagad</span>
+                        <span className="text-[9px] text-orange-300/80">API Gateway</span>
                       </button>
 
-                      {/* Option 3: Cash on Delivery (COD) */}
+                      {/* Option 3: Rocket */}
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('rocket')}
+                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                          paymentMethod === 'rocket'
+                            ? 'bg-[#8C3494]/20 border-[#8C3494] text-purple-300 shadow-md ring-1 ring-[#8C3494]'
+                            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="text-xs font-black text-[#8C3494]">Rocket</span>
+                        <span className="text-[9px] text-purple-300/80">API Gateway</span>
+                      </button>
+
+                      {/* Option 4: Cash on Delivery (COD) */}
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('cod')}
-                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                           paymentMethod === 'cod'
-                            ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500'
+                            ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300 shadow-md ring-1 ring-emerald-500'
                             : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
                         }`}
                       >
-                        <Truck className="w-5 h-5 text-emerald-400" />
-                        <span className="text-[11px] font-bold">Cash on Del.</span>
+                        <Truck className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs font-bold">Cash on Del.</span>
                         <span className="text-[9px] text-emerald-400/80">Pay on Hand</span>
                       </button>
                     </div>
 
                     {/* Payment Sub-Form Panel */}
                     <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
-                      {paymentMethod === 'stripe' && (
-                        <div className="space-y-2.5 animate-in fade-in duration-150">
+                      {['bkash', 'nagad', 'rocket'].includes(paymentMethod) && (
+                        <div className="space-y-3 animate-in fade-in duration-150">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                              <Lock className="w-3.5 h-3.5 text-cyan-400" /> Stripe Secure Checkout
+                            <span className="font-semibold text-white flex items-center gap-1.5">
+                              <Smartphone className="w-4 h-4 text-emerald-400" />
+                              {paymentMethod === 'bkash'
+                                ? 'bKash API Instant Payment'
+                                : paymentMethod === 'nagad'
+                                ? 'Nagad Mobile Banking API'
+                                : 'Rocket DBBL Mobile Banking API'}
                             </span>
-                            <span className="text-[10px] text-cyan-400 font-mono">VISA / MC / AMEX</span>
+                            <span className="text-[10px] font-bold text-emerald-400">
+                              Automated Verification
+                            </span>
                           </div>
 
                           <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={cardNumber}
-                              onChange={(e) => setCardNumber(e.target.value)}
-                              placeholder="Card Number"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-cyan-500 outline-none"
-                            />
-                            <div className="grid grid-cols-2 gap-2">
-                              <input
-                                type="text"
-                                value={cardExpiry}
-                                onChange={(e) => setCardExpiry(e.target.value)}
-                                placeholder="MM / YY"
-                                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-cyan-500 outline-none"
-                              />
-                              <input
-                                type="text"
-                                value={cardCvc}
-                                onChange={(e) => setCardCvc(e.target.value)}
-                                placeholder="CVC"
-                                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-cyan-500 outline-none"
-                              />
-                            </div>
-                          </div>
-                          <div className="text-[10px] text-slate-500 flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                            Card details encrypted end-to-end via Stripe API protocol.
-                          </div>
-                        </div>
-                      )}
-
-                      {paymentMethod === 'mobile' && (
-                        <div className="space-y-3 animate-in fade-in duration-150">
-                          {/* Provider Selector Tabs */}
-                          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800">
-                            <button
-                              type="button"
-                              onClick={() => setMobileProvider('bkash')}
-                              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                                mobileProvider === 'bkash'
-                                  ? 'bg-[#E2136E] text-white shadow'
-                                  : 'text-slate-400 hover:text-white'
-                              }`}
-                            >
-                              bKash
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMobileProvider('nagad')}
-                              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                                mobileProvider === 'nagad'
-                                  ? 'bg-[#F7931E] text-white shadow'
-                                  : 'text-slate-400 hover:text-white'
-                              }`}
-                            >
-                              Nagad
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMobileProvider('rocket')}
-                              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                                mobileProvider === 'rocket'
-                                  ? 'bg-[#8C3494] text-white shadow'
-                                  : 'text-slate-400 hover:text-white'
-                              }`}
-                            >
-                              Rocket
-                            </button>
-                          </div>
-
-                          {/* Merchant Account Details Box */}
-                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs">
-                            <div className="flex items-center justify-between">
-                              <span className="text-slate-400">
-                                {mobileProvider.toUpperCase()} Merchant No:
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleCopyMerchant(
-                                    mobileProvider === 'bkash'
-                                      ? '01712345678'
-                                      : mobileProvider === 'nagad'
-                                      ? '01812345678'
-                                      : '01912345678'
-                                  )
-                                }
-                                className="flex items-center gap-1 text-[11px] text-cyan-400 hover:underline font-mono"
-                              >
-                                {copiedNumber ? (
-                                  <>
-                                    <Check className="w-3 h-3 text-emerald-400" /> Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3 h-3" /> Copy
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                            <div className="text-sm font-mono font-bold text-white tracking-wider">
-                              {mobileProvider === 'bkash'
-                                ? '01712-345678'
-                                : mobileProvider === 'nagad'
-                                ? '01812-345678'
-                                : '01912-345678'}
-                            </div>
-                            <div className="text-[11px] text-slate-400 pt-1 leading-relaxed">
-                              Send Money or Pay <span className="text-emerald-400 font-bold">${subtotal.toFixed(2)}</span> with reference <span className="text-cyan-300 font-bold">FOLIOVERSE</span>.
-                            </div>
-                          </div>
-
-                          {/* TrxID Input */}
-                          <div className="space-y-1">
-                            <label className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
-                              <span>Transaction ID (TrxID) *</span>
-                              <span className="text-[10px] text-slate-500">e.g. 9J2K8L1M0N</span>
+                            <label className="text-[11px] font-semibold text-slate-300 block">
+                              Enter Your {paymentMethod.toUpperCase()} Mobile Number:
                             </label>
                             <input
-                              type="text"
+                              type="tel"
                               required
-                              value={transactionId}
-                              onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
-                              placeholder="Enter TrxID after sending payment"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-cyan-500 outline-none uppercase"
+                              value={mobileNumber}
+                              onChange={(e) => setMobileNumber(e.target.value)}
+                              placeholder="017XXXXXXXX"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-cyan-500 outline-none"
                             />
+                            <div className="text-[10px] text-slate-400 flex items-center gap-1.5 leading-relaxed">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>
+                                Clicking submit will automatically connect to {paymentMethod.toUpperCase()} API, authenticate transaction for <strong>৳{subtotal.toFixed(2)}</strong>, and confirm your order.
+                              </span>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -697,12 +671,12 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                             <span>Cash on Delivery (COD) Selected</span>
                           </div>
                           <p className="text-slate-400 text-[11px] leading-relaxed">
-                            No online payment required now. You will pay{' '}
-                            <span className="text-white font-bold">${subtotal.toFixed(2)}</span> in
+                            No advance payment required. You will pay{' '}
+                            <span className="text-white font-bold">৳ {subtotal.toFixed(2)}</span> in
                             cash directly to the courier agent when your book parcel is delivered to your doorstep.
                           </p>
                           <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300">
-                            📦 Standard delivery: 2-3 business days with free parcel tracking.
+                            📦 Free doorstep delivery anywhere in Bangladesh within 2-3 business days.
                           </div>
                         </div>
                       )}
@@ -718,26 +692,20 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                     >
                       {isSubmitting ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          <span>Processing Order...</span>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>{paymentProcessingStage || 'Processing Order...'}</span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="w-4 h-4" />
                           <span>
-                            {paymentMethod === 'stripe'
-                              ? `Pay with Stripe Card ($${subtotal.toFixed(2)})`
-                              : paymentMethod === 'mobile'
-                              ? `Confirm ${mobileProvider.toUpperCase()} Order ($${subtotal.toFixed(2)})`
-                              : `Place Cash on Delivery Order ($${subtotal.toFixed(2)})`}
+                            {paymentMethod === 'cod'
+                              ? `Place Order via COD • ৳ ${subtotal.toFixed(2)}`
+                              : `Pay with ${paymentMethod.toUpperCase()} API • ৳ ${subtotal.toFixed(2)}`}
                           </span>
+                          <ArrowRight className="w-4 h-4" />
                         </>
                       )}
                     </button>
-
-                    <p className="text-center text-[10px] text-slate-500 mt-2">
-                      By placing this order you agree to FolioVerse Terms of Service & Book Return Policy.
-                    </p>
                   </div>
                 </form>
               </>

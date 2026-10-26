@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import {
   X,
   User,
@@ -10,6 +12,7 @@ import {
   Code,
   BookOpen,
   ShoppingBag,
+  ShoppingCart,
   CheckCircle2,
   AlertTriangle,
   XCircle,
@@ -29,6 +32,8 @@ export const BookDetailModal = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showJson, setShowJson] = useState(false);
+  const { canManageBooks } = useAuth();
+  const { addToCart, openCart } = useCart();
 
   if (!isOpen || !book) return null;
 
@@ -43,19 +48,31 @@ export const BookDetailModal = ({
   const isAvailable = book.stock > 0 && book.status !== 'sold';
 
   const handleEdit = () => {
-    if (isAuthenticated) {
+    if (canManageBooks) {
       onEdit(book);
     } else {
-      onRequireAuth('Please log in with Token Authentication to edit this book.');
+      onRequireAuth('Manager or Admin permissions required to edit books.');
     }
   };
 
   const handleDelete = () => {
-    if (isAuthenticated) {
+    if (canManageBooks) {
       onDelete(book);
     } else {
-      onRequireAuth('Please log in with Token Authentication to delete this book.');
+      onRequireAuth('Manager or Admin permissions required to delete books.');
     }
+  };
+
+  const handleModalAddToCart = () => {
+    if (!isAvailable) return;
+    addToCart(book, 1);
+  };
+
+  const handleModalInstantBuy = () => {
+    if (!isAvailable) return;
+    addToCart(book, 1);
+    onClose();
+    openCart();
   };
 
   return (
@@ -131,7 +148,7 @@ export const BookDetailModal = ({
 
                 <div className="flex items-center gap-3 pt-1">
                   <div className="text-2xl font-black text-emerald-400">
-                    ${parseFloat(book.price).toFixed(2)}
+                    ৳ {parseFloat(book.price).toFixed(2)}
                   </div>
                   <div className="text-xs text-slate-400 px-2 py-1 rounded bg-slate-950 border border-slate-800">
                     Condition: <span className="font-semibold text-white">{book.condition || 'New'}</span>
@@ -164,26 +181,38 @@ export const BookDetailModal = ({
                 </div>
               </div>
 
-              {/* Instant Buy CTA Button */}
+              {/* Buyer Actions: Instant Buy & Add to Cart */}
               <div className="pt-3 flex flex-wrap items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    onClose();
-                    if (onBuy) onBuy(book);
-                  }}
+                  onClick={handleModalInstantBuy}
                   disabled={!isAvailable}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95 ${
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-lg active:scale-95 ${
                     isAvailable
                       ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-emerald-600/30'
                       : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-800'
                   }`}
                 >
                   <ShoppingBag className="w-4 h-4" />
-                  <span>{isAvailable ? 'Buy This Book Now' : 'Currently Unavailable'}</span>
+                  <span>{isAvailable ? 'Buy Now' : 'Out of Stock'}</span>
                 </button>
 
-                {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleModalAddToCart}
+                  disabled={!isAvailable}
+                  className={`flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all active:scale-95 ${
+                    isAvailable
+                      ? 'bg-slate-900 hover:bg-slate-800 text-cyan-300 border-slate-700 hover:border-cyan-500'
+                      : 'bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <ShoppingCart className="w-4 h-4 text-cyan-400" />
+                  <span>Add to Cart</span>
+                </button>
+
+                {/* Manager / Admin controls ONLY - Hidden from buyers */}
+                {canManageBooks && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleEdit}

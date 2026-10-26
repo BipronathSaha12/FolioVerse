@@ -44,7 +44,7 @@ export const AuthModal = ({
 
     try {
       if (mode === 'login') {
-        await login(username, password);
+        await login(username, password, role);
         onSuccess(`Welcome back, ${username}! Authenticated successfully.`);
       } else {
         if (password !== passwordConfirm) {
@@ -52,7 +52,7 @@ export const AuthModal = ({
           setSubmitting(false);
           return;
         }
-        await register(username, email, password, passwordConfirm);
+        await register(username, email, password, passwordConfirm, role);
         onSuccess(
           `Account created as Book ${role === 'seller' ? 'Seller' : 'Buyer'}! Welcome to FolioVerse, ${username}.`
         );

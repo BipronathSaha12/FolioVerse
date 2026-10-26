@@ -30,17 +30,19 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, [token]);
 
-  const login = async (username, password) => {
+  const login = async (username, password, roleHint = null) => {
     const res = await authService.login({ username, password });
     const { token: newToken, user: userData } = res.data;
+    const computedRole = roleHint || (userData.is_staff || userData.is_superuser || userData.username === 'admin' ? 'admin' : userData.username?.includes('seller') ? 'seller' : 'buyer');
+    const enrichedUser = { ...userData, role: computedRole };
     setToken(newToken);
-    setUser(userData);
+    setUser(enrichedUser);
     localStorage.setItem('folioverse_token', newToken);
-    localStorage.setItem('folioverse_user', JSON.stringify(userData));
+    localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
     return res.data;
   };
 
-  const register = async (username, email, password, passwordConfirm) => {
+  const register = async (username, email, password, passwordConfirm, role = 'buyer') => {
     const res = await authService.register({
       username,
       email,
@@ -48,10 +50,11 @@ export const AuthProvider = ({ children }) => {
       password_confirm: passwordConfirm,
     });
     const { token: newToken, user: userData } = res.data;
+    const enrichedUser = { ...userData, role: role || 'buyer' };
     setToken(newToken);
-    setUser(userData);
+    setUser(enrichedUser);
     localStorage.setItem('folioverse_token', newToken);
-    localStorage.setItem('folioverse_user', JSON.stringify(userData));
+    localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
     return res.data;
   };
 
@@ -70,12 +73,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const isAdmin = Boolean(user?.is_staff || user?.is_superuser || user?.username === 'admin' || user?.role === 'admin');
+  const isSeller = Boolean(user?.role === 'seller' || user?.username?.includes('seller'));
+  const isBuyer = Boolean(!isAdmin && !isSeller);
+  const canManageBooks = Boolean(isAdmin || isSeller);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
         isAuthenticated: !!token,
+        isAdmin,
+        isSeller,
+        isBuyer,
+        canManageBooks,
         loading,
         login,
         register,

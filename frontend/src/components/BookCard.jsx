@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import {
   Calendar,
   User,
@@ -28,6 +29,7 @@ export const BookCard = ({
   const [imageError, setImageError] = useState(false);
   const [addedAnimation, setAddedAnimation] = useState(false);
   const { addToCart, openCart } = useCart();
+  const { canManageBooks } = useAuth();
 
   const formattedDate = book.published_date
     ? new Date(book.published_date).toLocaleDateString('en-US', {
@@ -86,9 +88,9 @@ export const BookCard = ({
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-black/30 pointer-events-none" />
 
-        {/* Price Badge */}
+        {/* Price Badge in BDT */}
         <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-slate-950/90 backdrop-blur-md border border-emerald-500/40 text-emerald-400 font-black text-sm shadow-lg">
-          ${parseFloat(book.price).toFixed(2)}
+          ৳ {parseFloat(book.price).toFixed(2)}
         </div>
 
         {/* Category & Subcategory Badges */}
@@ -212,7 +214,7 @@ export const BookCard = ({
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/20'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
-              title="Direct buy with Stripe, bKash, Nagad, Rocket or COD"
+              title="Direct buy with bKash, Nagad, Rocket or Cash on Delivery (COD)"
             >
               Buy
             </button>
@@ -230,8 +232,8 @@ export const BookCard = ({
               <Eye className="w-4 h-4" />
             </button>
 
-            {/* Admin / Seller controls */}
-            {isAuthenticated && (
+            {/* Admin / Seller controls ONLY - Never displayed for buyers */}
+            {canManageBooks && (
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"

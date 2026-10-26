@@ -90,7 +90,7 @@ export const SellBookModal = ({ isOpen, onClose, onSuccess }) => {
     }
     const parsedPrice = parseFloat(formData.price);
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      setErrorMsg('Please enter a valid price greater than $0.');
+      setErrorMsg('Please enter a valid price greater than ৳ 0.');
       return;
     }
 
@@ -249,16 +249,16 @@ export const SellBookModal = ({ isOpen, onClose, onSuccess }) => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Selling Price ($) <span className="text-rose-400">*</span>
+                Selling Price (৳ BDT) <span className="text-rose-400">*</span>
               </label>
               <input
                 type="number"
                 step="0.01"
-                min="0.50"
+                min="1.00"
                 required
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                placeholder="15.00"
+                placeholder="350.00"
                 className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs"
               />
             </div>

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const CartContext = createContext(null);
 
 export const CartProvider = ({ children }) => {
+  // Active Cart Items
   const [cartItems, setCartItems] = useState(() => {
     try {
       const saved = localStorage.getItem('folioverse_cart');
@@ -12,10 +13,40 @@ export const CartProvider = ({ children }) => {
     }
   });
 
+  // Saved for Later / Cart Wishlist Items
+  const [savedItems, setSavedItems] = useState(() => {
+    try {
+      const saved = localStorage.getItem('folioverse_saved_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Cart Addition History (Audit trail of items added)
+  const [cartHistory, setCartHistory] = useState(() => {
+    try {
+      const history = localStorage.getItem('folioverse_cart_history');
+      return history ? JSON.parse(history) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Locally Placed Order History
+  const [orderHistory, setOrderHistory] = useState(() => {
+    try {
+      const orders = localStorage.getItem('folioverse_order_history');
+      return orders ? JSON.parse(orders) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Persist to localStorage
+  // Persist Active Cart to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('folioverse_cart', JSON.stringify(cartItems));
@@ -23,6 +54,33 @@ export const CartProvider = ({ children }) => {
       console.warn('Failed to persist cart items to localStorage', err);
     }
   }, [cartItems]);
+
+  // Persist Saved For Later to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('folioverse_saved_cart', JSON.stringify(savedItems));
+    } catch (err) {
+      console.warn('Failed to persist saved items to localStorage', err);
+    }
+  }, [savedItems]);
+
+  // Persist Cart History to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('folioverse_cart_history', JSON.stringify(cartHistory));
+    } catch (err) {
+      console.warn('Failed to persist cart history to localStorage', err);
+    }
+  }, [cartHistory]);
+
+  // Persist Order History to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('folioverse_order_history', JSON.stringify(orderHistory));
+    } catch (err) {
+      console.warn('Failed to persist order history to localStorage', err);
+    }
+  }, [orderHistory]);
 
   // Auto clear toast
   useEffect(() => {
@@ -41,6 +99,23 @@ export const CartProvider = ({ children }) => {
       showToast({ type: 'error', text: `Sorry, "${book?.title || 'Book'}" is sold out.` });
       return false;
     }
+
+    // Record into Cart History
+    setCartHistory((prev) => {
+      const filtered = prev.filter((h) => h.id !== book.id);
+      return [
+        {
+          id: book.id,
+          title: book.title,
+          author: book.author,
+          price: parseFloat(book.price),
+          cover_image: book.cover_image,
+          category: book.category,
+          addedAt: new Date().toISOString(),
+        },
+        ...filtered,
+      ].slice(0, 30);
+    });
 
     setCartItems((prevItems) => {
       const existing = prevItems.find((item) => item.bookId === book.id);
@@ -104,6 +179,35 @@ export const CartProvider = ({ children }) => {
     });
   };
 
+  const saveForLater = (bookId) => {
+    const itemToSave = cartItems.find((i) => i.bookId === bookId);
+    if (!itemToSave) return;
+
+    setCartItems((prev) => prev.filter((i) => i.bookId !== bookId));
+    setSavedItems((prev) => {
+      if (prev.some((i) => i.bookId === bookId)) return prev;
+      return [...prev, itemToSave];
+    });
+    showToast({ type: 'info', text: `Saved "${itemToSave.title}" for later.` });
+  };
+
+  const moveToCartFromSaved = (bookId) => {
+    const itemToMove = savedItems.find((i) => i.bookId === bookId);
+    if (!itemToMove) return;
+
+    setSavedItems((prev) => prev.filter((i) => i.bookId !== bookId));
+    setCartItems((prev) => [...prev, itemToMove]);
+    showToast({ type: 'success', text: `Moved "${itemToMove.title}" back to active cart.` });
+  };
+
+  const removeSavedItem = (bookId) => {
+    setSavedItems((prev) => prev.filter((i) => i.bookId !== bookId));
+  };
+
+  const recordOrder = (orderData) => {
+    setOrderHistory((prev) => [orderData, ...prev]);
+  };
+
   const clearCart = () => {
     setCartItems([]);
   };
@@ -118,6 +222,9 @@ export const CartProvider = ({ children }) => {
     <CartContext.Provider
       value={{
         cartItems,
+        savedItems,
+        cartHistory,
+        orderHistory,
         totalItems,
         subtotal,
         isCartOpen,
@@ -127,6 +234,10 @@ export const CartProvider = ({ children }) => {
         addToCart,
         updateQuantity,
         removeFromCart,
+        saveForLater,
+        moveToCartFromSaved,
+        removeSavedItem,
+        recordOrder,
         clearCart,
         toastMessage,
       }}
