@@ -82,8 +82,8 @@ The catalog must strictly categorize every book into one of 5 main genres with d
   - Full modal inspecting condition, language, published date, author, stock status, and ISBN-13.
 
 ### 4.3 Navigation & Client-Side UI
-- **Branded Navbar:** Includes official logo (`src/assets/projects/folioverse_logo.jpg`), live inventory beacon, genre dropdown, dedicated **Literature Submenu** (with Bengali & English literature sub-items), theme switcher (Bright vs Purple), dashboard button, and mobile hamburger drawer.
-- **Theme Switcher:** Default theme is Bright (light mode), toggling to luxury Purple theme across all client and admin views.
+- **Branded Navbar:** Includes official logo (`src/assets/projects/folioverse_logo.jpg`), live inventory beacon, genre dropdown, dedicated **Literature Submenu** (with Bengali & English literature sub-items), icon-only theme switcher (toggle between Bright and Purple mode without text), authenticated dashboard button (visible strictly after login or sign up), and mobile hamburger drawer.
+- **Theme Switcher:** Default theme is Bright (light mode), toggling to luxury Purple theme with a sleek, icon-only toggle across all client and admin views.
 - **Mobile Responsive Drawer:** Slide-over navigation drawer locking body scroll, providing theme toggle, category filters, and quick CTAs.
 - **Client-Side Footer:** Displays brand identity, literature categories, and direct contact communication channels (Phone: `+8801559503222`, Email: `contact@folioverse.com`). **No raw developer API endpoints are exposed in the client-side footer.**
 

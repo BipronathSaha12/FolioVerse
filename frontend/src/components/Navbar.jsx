@@ -304,14 +304,16 @@ export const Navbar = ({
               )}
             </div>
 
-            {/* Store Dashboard link */}
-            <button
-              onClick={onOpenDashboard}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-slate-800 transition-all"
-            >
-              <Shield className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Dashboard</span>
-            </button>
+            {/* Store Dashboard link (Visible only after sign in / registration) */}
+            {isAuthenticated && (
+              <button
+                onClick={onOpenDashboard}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-slate-800 transition-all"
+              >
+                <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Dashboard</span>
+              </button>
+            )}
 
             {/* Contact link */}
             <button
@@ -325,27 +327,21 @@ export const Navbar = ({
 
           {/* Desktop Right Actions: Theme, Cart, Sell CTA & Auth */}
           <div className="hidden lg:flex items-center gap-2.5">
-            {/* Theme Toggle Button (Bright vs Purple) */}
+            {/* Theme Toggle Button (Icon only) */}
             <button
               onClick={toggleTheme}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-all text-xs font-semibold shadow-sm active:scale-95 ${
+              className={`p-2.5 rounded-xl border transition-all shadow-sm active:scale-95 flex items-center justify-center ${
                 theme === 'bright'
                   ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-300 shadow-purple-500/10'
                   : 'bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 border-purple-500/40 shadow-purple-500/25'
               }`}
-              title={`Switch to ${theme === 'bright' ? 'Purple' : 'Bright'} Theme`}
+              title="Toggle Theme"
               aria-label="Toggle Theme"
             >
               {theme === 'bright' ? (
-                <>
-                  <Palette className="w-4 h-4 text-purple-600 animate-pulse-subtle" />
-                  <span className="hidden xl:inline">Purple Theme</span>
-                </>
+                <Palette className="w-4 h-4 text-purple-600" />
               ) : (
-                <>
-                  <Sun className="w-4 h-4 text-amber-300 animate-pulse-subtle" />
-                  <span className="hidden xl:inline">Bright Theme</span>
-                </>
+                <Sun className="w-4 h-4 text-amber-300" />
               )}
             </button>
 
@@ -439,7 +435,7 @@ export const Navbar = ({
                   : 'bg-purple-950/60 text-purple-300 border-purple-500/40'
               }`}
               aria-label="Toggle Theme"
-              title={`Toggle ${theme === 'bright' ? 'Purple' : 'Bright'} Theme`}
+              title="Toggle Theme"
             >
               {theme === 'bright' ? (
                 <Palette className="w-4 h-4 text-purple-600" />
@@ -565,17 +561,19 @@ export const Navbar = ({
               )}
 
               {/* Quick Actions in Mobile Drawer */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenDashboard();
-                  }}
-                  className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-slate-900 border border-cyan-500/30 text-cyan-300 font-bold text-xs"
-                >
-                  <Shield className="w-4 h-4 text-cyan-400" />
-                  <span>Admin Dashboard</span>
-                </button>
+              <div className={`grid ${isAuthenticated ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                {isAuthenticated && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenDashboard();
+                    }}
+                    className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-slate-900 border border-cyan-500/30 text-cyan-300 font-bold text-xs"
+                  >
+                    <Shield className="w-4 h-4 text-cyan-400" />
+                    <span>Admin Dashboard</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => {
