@@ -16,19 +16,25 @@ import {
   Smartphone,
   Bookmark,
   Check,
-  Lock,
   Sparkles,
   RefreshCw,
+  Clock,
+  History,
+  Copy,
+  BookOpen,
 } from 'lucide-react';
 
 export const CartDrawer = ({ onOrderPlaced }) => {
   const {
     cartItems,
     savedItems,
+    cartHistory,
+    orderHistory,
     totalItems,
     subtotal,
     isCartOpen,
     closeCart,
+    addToCart,
     updateQuantity,
     removeFromCart,
     saveForLater,
@@ -36,9 +42,13 @@ export const CartDrawer = ({ onOrderPlaced }) => {
     removeSavedItem,
     recordOrder,
     clearCart,
+    clearCartHistory,
   } = useCart();
 
   const { user } = useAuth();
+
+  // Tab State: 'cart' (Active Cart) | 'history' (Cart History) | 'saved' (Saved for Later)
+  const [drawerTab, setDrawerTab] = useState('cart');
 
   // Checkout Form State
   const [customerName, setCustomerName] = useState(user?.username || '');
@@ -46,7 +56,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
   const [customerPhone, setCustomerPhone] = useState('01712345678');
   const [shippingAddress, setShippingAddress] = useState('');
   
-  // Payment Method Selection: 'bkash' | 'nagad' | 'rocket' | 'cod' (No Stripe)
+  // Payment Method Selection: 'bkash' | 'nagad' | 'rocket' | 'cod' (No foreign card processors)
   const [paymentMethod, setPaymentMethod] = useState('bkash');
   const [mobileNumber, setMobileNumber] = useState('01712345678');
 
@@ -55,6 +65,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
   const [paymentProcessingStage, setPaymentProcessingStage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [orderSuccess, setOrderSuccess] = useState(null);
+  const [copiedTrx, setCopiedTrx] = useState(false);
 
   // Sync logged in user details if available
   useEffect(() => {
@@ -115,7 +126,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
     let resolvedTransactionId = '';
 
     try {
-      // 1. If mobile banking (bKash, Nagad, Rocket), execute automated Payment API
+      // 1. If mobile banking (bKash, Nagad, Rocket), execute automated API Payment Gateway
       if (['bkash', 'nagad', 'rocket'].includes(paymentMethod)) {
         const targetNumber = (mobileNumber || customerPhone || '').trim();
         if (!targetNumber || targetNumber.length < 11) {
@@ -137,8 +148,9 @@ export const CartDrawer = ({ onOrderPlaced }) => {
         setPaymentProcessingStage(`Payment of ৳${subtotal.toFixed(2)} verified! Finalizing order...`);
       }
 
-      // 2. Create the Order
+      // 2. Create the Order in Backend Database
       const payload = {
+        username: user?.username || '',
         customer_name: customerName.trim(),
         customer_email: customerEmail.trim(),
         customer_phone: customerPhone.trim() || mobileNumber.trim(),
@@ -179,6 +191,14 @@ export const CartDrawer = ({ onOrderPlaced }) => {
     closeCart();
   };
 
+  const handleCopyTrx = (trxId) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(trxId);
+      setCopiedTrx(true);
+      setTimeout(() => setCopiedTrx(false), 2500);
+    }
+  };
+
   if (!isCartOpen) return null;
 
   return (
@@ -191,37 +211,85 @@ export const CartDrawer = ({ onOrderPlaced }) => {
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
         <div className="w-screen max-w-md sm:max-w-xl bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
+          
           {/* Header */}
-          <div className="p-4 sm:p-5 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/60 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400">
-                <ShoppingBag className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base sm:text-lg font-bold text-white">Shopping Cart</h2>
-                  <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-xs border border-cyan-500/30">
-                    {totalItems} {totalItems === 1 ? 'item' : 'items'}
-                  </span>
+          <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400">
+                  <ShoppingBag className="w-5 h-5" />
                 </div>
-                <p className="text-xs text-slate-400">FolioVerse Fast Delivery (Bangladesh)</p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-bold text-white">Shopping Cart & History</h2>
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-xs border border-cyan-500/30">
+                      {totalItems} in cart
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">FolioVerse Fast Delivery (Bangladesh)</p>
+                </div>
               </div>
+
+              <button
+                onClick={closeCart}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-all"
+                aria-label="Close cart"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <button
-              onClick={closeCart}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-all"
-              aria-label="Close cart"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Three Tab Switcher: Active Cart | Cart History | Saved for Later */}
+            {!orderSuccess && (
+              <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-slate-800/70">
+                <button
+                  type="button"
+                  onClick={() => setDrawerTab('cart')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    drawerTab === 'cart'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                      : 'bg-slate-900/60 text-slate-400 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Cart ({totalItems})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDrawerTab('history')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    drawerTab === 'history'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
+                      : 'bg-slate-900/60 text-slate-400 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>History ({cartHistory.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDrawerTab('saved')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    drawerTab === 'saved'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                      : 'bg-slate-900/60 text-slate-400 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span>Saved ({savedItems.length})</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Drawer Body */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+            {/* VIEW 1: ORDER SUCCESS & SIMULATED MOBILE BANKING SMS CONFIRMATION */}
             {orderSuccess ? (
-              /* ORDER SUCCESS RECEIPT SCREEN */
-              <div className="space-y-6 text-center animate-in zoom-in-95 duration-200 py-4">
+              <div className="space-y-6 text-center animate-in zoom-in-95 duration-200 py-2">
                 <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mx-auto text-emerald-400 shadow-lg shadow-emerald-500/25">
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
@@ -234,9 +302,74 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                     Thank You for Your Order!
                   </h3>
                   <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                    Your books have been locked in inventory and are being packed for fast courier dispatch across Bangladesh.
+                    Your book inventory has been decremented and reserved. Delivery is confirmed across Bangladesh.
                   </p>
                 </div>
+
+                {/* SIMULATED MOBILE BANKING SMS NOTIFICATION BOX (For bKash / Nagad / Rocket) */}
+                {['bkash', 'nagad', 'rocket'].includes(orderSuccess.payment_method?.toLowerCase()) && (
+                  <div className="bg-slate-900 border-2 border-emerald-500/60 rounded-2xl p-4 text-left shadow-2xl relative overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📱</span>
+                        <div>
+                          <div className="text-xs font-black text-white flex items-center gap-1.5">
+                            {orderSuccess.payment_method.toUpperCase()} SMS Notification
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                              {orderSuccess.payment_method === 'bkash' ? '16247' : orderSuccess.payment_method === 'nagad' ? '16167' : '16216'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Sent to test number: <span className="text-white font-mono">{orderSuccess.customer_phone || mobileNumber}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        <CheckCircle2 className="w-3 h-3" /> SMS Delivered
+                      </span>
+                    </div>
+
+                    {/* Official SMS Body formatted like real telecom operator SMS */}
+                    <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-xs text-slate-200 leading-relaxed shadow-inner">
+                      {orderSuccess.payment_method === 'bkash' && (
+                        <>
+                          Payment <span className="text-emerald-400 font-bold">Tk {parseFloat(orderSuccess.total_amount).toFixed(2)}</span> to <span className="text-white font-bold">FolioVerse Book Shop</span> successful. TrxID <span className="text-cyan-300 font-bold">{orderSuccess.transaction_id}</span> at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}. Balance: Tk 8,450.00. Fee Tk 0.00.
+                        </>
+                      )}
+                      {orderSuccess.payment_method === 'nagad' && (
+                        <>
+                          Payment of <span className="text-emerald-400 font-bold">Tk {parseFloat(orderSuccess.total_amount).toFixed(2)}</span> to <span className="text-white font-bold">FolioVerse Book Shop</span> is successful. TxnID: <span className="text-cyan-300 font-bold">{orderSuccess.transaction_id}</span> at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}. Fee: Tk 0.00.
+                        </>
+                      )}
+                      {orderSuccess.payment_method === 'rocket' && (
+                        <>
+                          Your payment of <span className="text-emerald-400 font-bold">Tk {parseFloat(orderSuccess.total_amount).toFixed(2)}</span> to <span className="text-white font-bold">FolioVerse Book Shop</span> completed. TrxID: <span className="text-cyan-300 font-bold">{orderSuccess.transaction_id}</span>. Fee Tk 0.00.
+                        </>
+                      )}
+                    </div>
+
+                    <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>⚡ Automated Mobile Banking Gateway Verified</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyTrx(orderSuccess.transaction_id)}
+                        className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors"
+                      >
+                        {copiedTrx ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-400">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy TrxID</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Receipt Card */}
                 <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 sm:p-5 text-left space-y-3.5 shadow-xl">
@@ -244,7 +377,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                     <div>
                       <div className="text-[11px] text-slate-400 font-medium">Order Number</div>
                       <div className="text-sm font-mono font-bold text-cyan-300">
-                        {orderSuccess.order_number}
+                        #{orderSuccess.order_number}
                       </div>
                     </div>
                     <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold uppercase">
@@ -259,12 +392,12 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                       <div className="text-[11px] text-slate-400 truncate">{orderSuccess.customer_email}</div>
                     </div>
                     <div>
-                      <div className="text-slate-400">Payment Option</div>
-                      <div className="font-semibold text-emerald-400 uppercase">
+                      <div className="text-slate-400">Payment Channel</div>
+                      <div className="font-bold text-emerald-400 uppercase">
                         {orderSuccess.payment_method}
                       </div>
-                      <div className="text-[11px] text-slate-400">
-                        Status: <span className="text-cyan-300 font-bold uppercase">{orderSuccess.payment_status}</span>
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        {orderSuccess.payment_status === 'paid' ? 'Paid & Verified' : 'Cash on Delivery'}
                       </div>
                     </div>
                   </div>
@@ -285,27 +418,8 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                     </div>
                   </div>
 
-                  {/* Ordered Books list */}
-                  <div className="pt-2 border-t border-slate-800">
-                    <div className="text-xs font-semibold text-slate-300 mb-2">Purchased Items:</div>
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {orderSuccess.items?.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-950/60"
-                        >
-                          <div className="truncate pr-2">
-                            <span className="font-bold text-cyan-300">{item.quantity}x</span>{' '}
-                            <span className="text-slate-200">{item.title}</span>
-                          </div>
-                          <span className="font-semibold text-white shrink-0">৳ {item.subtotal}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-sm font-bold">
-                    <span className="text-slate-300">Total Amount:</span>
+                    <span className="text-slate-300">Total Paid (BDT):</span>
                     <span className="text-emerald-400 text-lg font-black">
                       ৳ {parseFloat(orderSuccess.total_amount).toFixed(2)}
                     </span>
@@ -321,9 +435,165 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                   </button>
                 </div>
               </div>
+            ) : drawerTab === 'history' ? (
+              /* VIEW 2: CART HISTORY / RECENT ACTIVITY */
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <History className="w-4 h-4 text-purple-400" />
+                      Cart Activity & Added Books History
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Saved chronological trail of books you've added to cart
+                    </p>
+                  </div>
+                  {cartHistory.length > 0 && (
+                    <button
+                      onClick={clearCartHistory}
+                      className="text-xs text-rose-400 hover:text-rose-300 hover:underline"
+                    >
+                      Clear History
+                    </button>
+                  )}
+                </div>
+
+                {cartHistory.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
+                    <History className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-white">No Cart History Yet</p>
+                    <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1 mb-4">
+                      Books you add to your cart from the catalog will be recorded here so you can review or re-order anytime.
+                    </p>
+                    <button
+                      onClick={() => setDrawerTab('cart')}
+                      className="px-4 py-2 rounded-xl bg-slate-800 text-cyan-300 text-xs font-bold hover:bg-slate-700 transition-colors"
+                    >
+                      Go to Active Cart
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {cartHistory.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {item.cover_image ? (
+                            <img
+                              src={item.cover_image}
+                              alt={item.title}
+                              className="w-10 h-14 object-cover rounded-lg border border-slate-800 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-14 rounded-lg bg-slate-950 flex items-center justify-center shrink-0 text-slate-600">
+                              <BookOpen className="w-5 h-5" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                              {item.title}
+                            </h4>
+                            <p className="text-[11px] text-slate-400 truncate">by {item.author}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-semibold truncate border border-slate-700">
+                                {item.category || 'Literature & Novel'}
+                              </span>
+                              <span className="text-xs font-black text-emerald-400">
+                                ৳ {parseFloat(item.price).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            addToCart(item, 1);
+                            setDrawerTab('cart');
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold whitespace-nowrap shrink-0 transition-all"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : drawerTab === 'saved' ? (
+              /* VIEW 3: SAVED FOR LATER */
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <Bookmark className="w-4 h-4 text-amber-400" />
+                      Saved for Later ({savedItems.length})
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Books moved from cart to keep for future purchase
+                    </p>
+                  </div>
+                </div>
+
+                {savedItems.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
+                    <Bookmark className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-white">No Saved Items</p>
+                    <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1 mb-4">
+                      Click "Save for later" on any book in your cart to park it here.
+                    </p>
+                    <button
+                      onClick={() => setDrawerTab('cart')}
+                      className="px-4 py-2 rounded-xl bg-slate-800 text-cyan-300 text-xs font-bold hover:bg-slate-700 transition-colors"
+                    >
+                      View Active Cart
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {savedItems.map((si) => (
+                      <div
+                        key={si.bookId || si.id}
+                        className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-white truncate">{si.title}</h4>
+                          <p className="text-[11px] text-slate-400 truncate">by {si.author}</p>
+                          <div className="text-xs font-black text-emerald-400 mt-1">
+                            ৳ {parseFloat(si.price).toFixed(2)}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              moveToCartFromSaved(si.bookId || si.id);
+                              setDrawerTab('cart');
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 transition-all"
+                          >
+                            Move to Cart
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeSavedItem(si.bookId || si.id)}
+                            className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg transition-colors"
+                            title="Remove"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : cartItems.length === 0 ? (
-              /* EMPTY CART STATE */
-              <div className="flex flex-col items-center justify-center py-12 text-center">
+              /* VIEW 4: EMPTY ACTIVE CART */
+              <div className="flex flex-col items-center justify-center py-12 text-center animate-in fade-in duration-200">
                 <div className="w-20 h-20 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 mb-4 shadow-inner">
                   <ShoppingBag className="w-10 h-10 text-slate-500" />
                 </div>
@@ -331,6 +601,16 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                 <p className="text-xs text-slate-400 mt-1.5 max-w-xs leading-relaxed">
                   Browse through 2,000+ literary masterpieces across Bengali & English Literature, Science, Technology, and Fiction.
                 </p>
+
+                {cartHistory.length > 0 && (
+                  <button
+                    onClick={() => setDrawerTab('history')}
+                    className="mt-4 px-3.5 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5 hover:bg-purple-500/30 transition-all"
+                  >
+                    <History className="w-3.5 h-3.5" /> View {cartHistory.length} Previous Items in History
+                  </button>
+                )}
+
                 <button
                   onClick={closeCart}
                   className="mt-6 flex items-center gap-2 py-2.5 px-5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 active:scale-95 transition-all"
@@ -340,7 +620,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                 </button>
               </div>
             ) : (
-              /* ACTIVE CART ITEMS & CHECKOUT FORM */
+              /* VIEW 5: ACTIVE CART ITEMS & CHECKOUT FORM */
               <>
                 {/* Book Items List */}
                 <div className="space-y-3">
@@ -458,46 +738,6 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                   </div>
                 </div>
 
-                {/* Saved for Later Section if any */}
-                {savedItems.length > 0 && (
-                  <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-amber-300">
-                      <span className="flex items-center gap-1.5">
-                        <Bookmark className="w-3.5 h-3.5 text-amber-400" /> Saved For Later ({savedItems.length})
-                      </span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {savedItems.map((si) => (
-                        <div
-                          key={si.bookId}
-                          className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-950 border border-slate-800"
-                        >
-                          <div className="truncate pr-2">
-                            <span className="font-semibold text-white block truncate">{si.title}</span>
-                            <span className="text-emerald-400 font-mono text-[11px]">৳ {si.price.toFixed(2)}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => moveToCartFromSaved(si.bookId)}
-                              className="px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 font-semibold text-[10px] hover:bg-cyan-500/30"
-                            >
-                              Move to Cart
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeSavedItem(si.bookId)}
-                              className="text-slate-500 hover:text-rose-400 text-[10px]"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Error Banner */}
                 {errorMsg && (
                   <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
@@ -554,7 +794,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                     </div>
                   </div>
 
-                  {/* Payment Method Selector (bKash vs Nagad vs Rocket vs COD - NO STRIPE) */}
+                  {/* Payment Method Selector (bKash vs Nagad vs Rocket vs COD) */}
                   <div className="space-y-3 pt-2">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
@@ -570,130 +810,109 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('bkash')}
-                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                        className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                           paymentMethod === 'bkash'
-                            ? 'bg-[#E2136E]/20 border-[#E2136E] text-pink-300 shadow-md ring-1 ring-[#E2136E]'
-                            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                            ? 'bg-pink-950/60 border-pink-500 text-white shadow-lg shadow-pink-950/40 ring-1 ring-pink-500'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
                         }`}
                       >
-                        <span className="text-xs font-black text-[#E2136E]">bKash</span>
-                        <span className="text-[9px] text-pink-300/80">API Gateway</span>
+                        <span className="text-xs font-black text-pink-400">bKash</span>
+                        <span className="text-[10px] text-slate-400">Mobile API</span>
                       </button>
 
                       {/* Option 2: Nagad */}
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('nagad')}
-                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                        className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                           paymentMethod === 'nagad'
-                            ? 'bg-[#F7931E]/20 border-[#F7931E] text-orange-300 shadow-md ring-1 ring-[#F7931E]'
-                            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                            ? 'bg-orange-950/60 border-orange-500 text-white shadow-lg shadow-orange-950/40 ring-1 ring-orange-500'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
                         }`}
                       >
-                        <span className="text-xs font-black text-[#F7931E]">Nagad</span>
-                        <span className="text-[9px] text-orange-300/80">API Gateway</span>
+                        <span className="text-xs font-black text-orange-400">Nagad</span>
+                        <span className="text-[10px] text-slate-400">Mobile API</span>
                       </button>
 
                       {/* Option 3: Rocket */}
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('rocket')}
-                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                        className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                           paymentMethod === 'rocket'
-                            ? 'bg-[#8C3494]/20 border-[#8C3494] text-purple-300 shadow-md ring-1 ring-[#8C3494]'
-                            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                            ? 'bg-purple-950/60 border-purple-500 text-white shadow-lg shadow-purple-950/40 ring-1 ring-purple-500'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
                         }`}
                       >
-                        <span className="text-xs font-black text-[#8C3494]">Rocket</span>
-                        <span className="text-[9px] text-purple-300/80">API Gateway</span>
+                        <span className="text-xs font-black text-purple-400">Rocket</span>
+                        <span className="text-[10px] text-slate-400">DBBL Mobile</span>
                       </button>
 
-                      {/* Option 4: Cash on Delivery (COD) */}
+                      {/* Option 4: Cash on Delivery */}
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('cod')}
-                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                        className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                           paymentMethod === 'cod'
-                            ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300 shadow-md ring-1 ring-emerald-500'
-                            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                            ? 'bg-emerald-950/60 border-emerald-500 text-white shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
                         }`}
                       >
-                        <Truck className="w-4 h-4 text-emerald-400" />
-                        <span className="text-xs font-bold">Cash on Del.</span>
-                        <span className="text-[9px] text-emerald-400/80">Pay on Hand</span>
+                        <span className="text-xs font-black text-emerald-400">COD</span>
+                        <span className="text-[10px] text-slate-400">Cash on Delivery</span>
                       </button>
                     </div>
 
-                    {/* Payment Sub-Form Panel */}
-                    <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
-                      {['bkash', 'nagad', 'rocket'].includes(paymentMethod) && (
-                        <div className="space-y-3 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-semibold text-white flex items-center gap-1.5">
-                              <Smartphone className="w-4 h-4 text-emerald-400" />
-                              {paymentMethod === 'bkash'
-                                ? 'bKash API Instant Payment'
-                                : paymentMethod === 'nagad'
-                                ? 'Nagad Mobile Banking API'
-                                : 'Rocket DBBL Mobile Banking API'}
-                            </span>
-                            <span className="text-[10px] font-bold text-emerald-400">
-                              Automated Verification
-                            </span>
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="text-[11px] font-semibold text-slate-300 block">
-                              Enter Your {paymentMethod.toUpperCase()} Mobile Number:
-                            </label>
-                            <input
-                              type="tel"
-                              required
-                              value={mobileNumber}
-                              onChange={(e) => setMobileNumber(e.target.value)}
-                              placeholder="017XXXXXXXX"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-cyan-500 outline-none"
-                            />
-                            <div className="text-[10px] text-slate-400 flex items-center gap-1.5 leading-relaxed">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>
-                                Clicking submit will automatically connect to {paymentMethod.toUpperCase()} API, authenticate transaction for <strong>৳{subtotal.toFixed(2)}</strong>, and confirm your order.
-                              </span>
-                            </div>
-                          </div>
+                    {/* Dynamic Provider Input Box */}
+                    {['bkash', 'nagad', 'rocket'].includes(paymentMethod) && (
+                      <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2.5 animate-in fade-in duration-150">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-white flex items-center gap-1.5">
+                            <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                            {paymentMethod.toUpperCase()} Account Number:
+                          </span>
+                          <span className="text-[11px] text-emerald-400 font-mono font-bold">
+                            API Automated
+                          </span>
                         </div>
-                      )}
+                        <input
+                          type="tel"
+                          required
+                          value={mobileNumber}
+                          onChange={(e) => setMobileNumber(e.target.value)}
+                          placeholder="017XXXXXXXX"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-cyan-500 text-white font-mono text-xs outline-none"
+                        />
+                        <div className="text-[11px] text-slate-400 leading-relaxed">
+                          🔒 Seamless API checkout: An automated payment gateway transaction will complete instantly without manual TrxID typing.
+                        </div>
+                      </div>
+                    )}
 
-                      {paymentMethod === 'cod' && (
-                        <div className="space-y-2 text-xs animate-in fade-in duration-150">
-                          <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Cash on Delivery (COD) Selected</span>
-                          </div>
-                          <p className="text-slate-400 text-[11px] leading-relaxed">
-                            No advance payment required. You will pay{' '}
-                            <span className="text-white font-bold">৳ {subtotal.toFixed(2)}</span> in
-                            cash directly to the courier agent when your book parcel is delivered to your doorstep.
+                    {paymentMethod === 'cod' && (
+                      <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-xs text-slate-300 flex items-start gap-2 animate-in fade-in duration-150">
+                        <Truck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold text-white">Cash on Delivery (COD):</span>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Pay the courier directly in cash after opening and verifying your books upon doorstep arrival.
                           </p>
-                          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300">
-                            📦 Free doorstep delivery anywhere in Bangladesh within 2-3 business days.
-                          </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Submit Order Button */}
+                  {/* Submit Button */}
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-600/25 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isSubmitting || cartItems.length === 0}
+                      className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 hover:brightness-110 active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>{paymentProcessingStage || 'Processing Order...'}</span>
+                          <span>{paymentProcessingStage || 'Processing Payment...'}</span>
                         </>
                       ) : (
                         <>
@@ -710,7 +929,16 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                 </form>
               </>
             )}
+
           </div>
+
+          {/* Drawer Footer */}
+          {!orderSuccess && (
+            <div className="p-3 sm:p-4 border-t border-slate-800/80 bg-slate-900/90 text-center text-[11px] text-slate-400">
+              FolioVerse Bangladesh • Prices in BDT • 100% Genuine Books
+            </div>
+          )}
+
         </div>
       </div>
     </div>

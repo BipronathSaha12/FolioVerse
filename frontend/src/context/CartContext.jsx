@@ -213,7 +213,23 @@ export const CartProvider = ({ children }) => {
   };
 
   const openCart = () => setIsCartOpen(true);
-  const closeCart = () => setIsCartOpen(false);
+  const [simulatedSms, setSimulatedSms] = useState(null);
+
+  const showSimulatedSms = (data) => {
+    setSimulatedSms({
+      ...data,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    });
+  };
+
+  const dismissSimulatedSms = () => setSimulatedSms(null);
+
+  const clearCartHistory = () => {
+    setCartHistory([]);
+    try {
+      localStorage.removeItem('folioverse_cart_history');
+    } catch {}
+  };
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -239,6 +255,10 @@ export const CartProvider = ({ children }) => {
         removeSavedItem,
         recordOrder,
         clearCart,
+        clearCartHistory,
+        simulatedSms,
+        showSimulatedSms,
+        dismissSimulatedSms,
         toastMessage,
       }}
     >

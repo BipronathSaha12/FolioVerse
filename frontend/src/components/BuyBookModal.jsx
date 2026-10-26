@@ -10,6 +10,8 @@ import {
   Smartphone,
   Truck,
   RefreshCw,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { orderService } from '../services/api';
 import { useCart } from '../context/CartContext';
@@ -33,6 +35,7 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
 
   const [submitting, setSubmitting] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
+  const [copiedTrx, setCopiedTrx] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [orderComplete, setOrderComplete] = useState(null);
 
@@ -167,6 +170,62 @@ export const BuyBookModal = ({ isOpen, book, onClose, onSuccess }) => {
                   Thank you for shopping at FolioVerse. Your books are being prepared for dispatch.
                 </p>
               </div>
+
+              {/* Simulated Mobile Banking SMS Confirmation */}
+              {['bkash', 'nagad', 'rocket'].includes(orderComplete.payment_method?.toLowerCase()) && (
+                <div className="bg-slate-900 border-2 border-emerald-500/60 rounded-2xl p-4 text-left shadow-2xl relative overflow-hidden text-xs">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📱</span>
+                      <div>
+                        <div className="font-bold text-white flex items-center gap-1.5">
+                          {orderComplete.payment_method.toUpperCase()} Official SMS Notification
+                          <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                            {orderComplete.payment_method === 'bkash' ? '16247' : orderComplete.payment_method === 'nagad' ? '16167' : '16216'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          Sent to: <span className="text-white font-mono">{buyerPhone || mobileNumber}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      <CheckCircle2 className="w-3 h-3" /> Delivered
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-xs text-slate-200 leading-relaxed shadow-inner">
+                    Payment <span className="text-emerald-400 font-bold">Tk {totalAmount}</span> to <span className="text-white font-bold">FolioVerse Book Shop</span> successful. TrxID <span className="text-cyan-300 font-bold">{orderComplete.transaction_id}</span>. Balance: Tk 8,450.00. Fee Tk 0.00.
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>⚡ Simulated Carrier SMS for test number</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator?.clipboard) {
+                          navigator.clipboard.writeText(orderComplete.transaction_id);
+                          setCopiedTrx(true);
+                          setTimeout(() => setCopiedTrx(false), 2000);
+                        }
+                      }}
+                      className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors"
+                    >
+                      {copiedTrx ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy TrxID</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left text-xs space-y-2">
                 <div className="flex justify-between text-slate-400">
