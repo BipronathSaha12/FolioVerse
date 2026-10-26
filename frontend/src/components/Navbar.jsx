@@ -492,7 +492,7 @@ export const Navbar = ({
                   className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold text-xs hover:text-emerald-400"
                 >
                   <Mail className="w-4 h-4 text-emerald-400" />
-                  <span>Contact Authority</span>
+                  <span>Contact</span>
                 </button>
               </div>
 

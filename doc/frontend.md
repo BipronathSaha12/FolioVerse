@@ -24,7 +24,7 @@ frontend/src/
 │   ├── BookModal.jsx                 # CRUD creation and modification modal
 │   ├── BuyBookModal.jsx              # Concurrency-safe atomic checkout dialog with multi-payment choices
 │   ├── CartDrawer.jsx                # Slide-out shopping cart drawer (Stripe, bKash, Nagad, Rocket, COD)
-│   ├── ContactModal.jsx              # Contact Authority modal (routes to bipronathsaha@gmail.com)
+│   ├── ContactModal.jsx              # Contact modal (routes to bipronathsaha@gmail.com)
 │   ├── DeleteConfirmModal.jsx        # Deletion confirmation modal
 │   ├── FilterBar.jsx                 # Horizontal category tabs & subcategory pills
 │   ├── HeroSection.jsx               # Digital bookstore hero, role CTAs, and live stats
@@ -87,10 +87,11 @@ frontend/src/
 - **Tab 2: Inventory Management:** Searchable list of books with quick stock adjustment (`+5 Restock`), Edit, and Delete controls. Renders compact touch-friendly cards on mobile devices without overflowing.
 - **Tab 3: Orders & Transactions:** Feed of recently completed buyer transactions.
 
-### 2.4 `ContactModal.jsx` (Authority Email Redirection)
+### 2.4 `ContactModal.jsx` (Email Redirection to `bipronathsaha@gmail.com`)
 - Accessible from both the navigation bar and footer.
 - Displays target recipient: `bipronathsaha@gmail.com`.
-- Encodes subject and message into an RFC 2368 `mailto:` link, redirects via `window.location.href`, and displays an in-app confirmation screen.
+- Fields: Recipient's Name, Email, Contact (Phone), and Message box.
+- Encodes details into an RFC 2368 `mailto:` link, redirects via `window.location.href`, and displays an in-app confirmation screen with copy and re-open options.
 
 ### 2.5 `AuthModal.jsx` (Role Selection & 1-Click Demo Logins)
 - **Role Selection Cards:** Toggle between **Book Buyer** and **Book Seller** prior to account creation.

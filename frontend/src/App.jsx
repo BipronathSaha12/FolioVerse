@@ -17,7 +17,7 @@ import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ToastContainer } from './components/Toast';
-import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Shield } from 'lucide-react';
+import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Shield, Phone } from 'lucide-react';
 
 function FolioVerseContent() {
   const { isAuthenticated } = useAuth();
@@ -329,7 +329,7 @@ function FolioVerseContent() {
         }}
       />
 
-      {/* Contact Authority Modal (direct to bipronathsaha@gmail.com) */}
+      {/* Contact Modal (direct to bipronathsaha@gmail.com) */}
       <ContactModal
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
@@ -404,43 +404,89 @@ function FolioVerseContent() {
         }}
       />
 
-      {/* Professional Bookstore Footer (Clean Client-Side Links, NO Developer API Endpoints) */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/90 py-8 sm:py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3 text-center sm:text-left">
-            <span className="font-extrabold text-white text-sm bg-gradient-to-r from-white via-cyan-200 to-emerald-300 bg-clip-text text-transparent">
-              FolioVerse
-            </span>
-            <span className="text-slate-600 hidden sm:inline">•</span>
-            <span className="text-slate-300">Digital Book Shop & Marketplace</span>
-            <span className="text-slate-600 hidden sm:inline">•</span>
-            <span className="text-emerald-400">Science, Technology, Fiction, Bengali & English Literature, Music</span>
+      {/* Professional Bookstore Footer */}
+      <footer className="border-t border-slate-800/80 bg-slate-950/95 pt-10 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-6 text-xs text-slate-400">
+            {/* Brand & Mission */}
+            <div className="max-w-md text-center lg:text-left space-y-2">
+              <div className="flex items-center justify-center lg:justify-start gap-2">
+                <span className="font-extrabold text-white text-base bg-gradient-to-r from-white via-cyan-200 to-emerald-300 bg-clip-text text-transparent">
+                  FolioVerse
+                </span>
+                <span className="text-slate-600">•</span>
+                <span className="text-slate-300 font-medium">Digital Book Shop</span>
+              </div>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Science, Technology, Fiction, Bengali & English Literature, and Music. Curated books delivered seamlessly with real-time inventory.
+              </p>
+            </div>
+
+            {/* Direct Contact Info */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6 bg-slate-900/60 border border-slate-800/80 px-4 py-3 rounded-2xl text-xs">
+              <a
+                href="tel:+8801559503222"
+                className="flex items-center gap-2 text-slate-300 hover:text-emerald-400 transition-colors group"
+              >
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
+                  <Phone className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Call Us</span>
+                  <span className="font-mono text-slate-200 font-semibold">+8801559503222</span>
+                </div>
+              </a>
+
+              <div className="hidden sm:block w-px h-8 bg-slate-800"></div>
+
+              <a
+                href="mailto:contact@folioverse.com"
+                className="flex items-center gap-2 text-slate-300 hover:text-cyan-400 transition-colors group"
+              >
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
+                  <Mail className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Email</span>
+                  <span className="font-mono text-slate-200 font-semibold">contact@folioverse.com</span>
+                </div>
+              </a>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex flex-wrap items-center justify-center gap-3 text-slate-300 font-medium">
+              <button
+                onClick={() => setSellModalOpen(true)}
+                className="hover:text-emerald-400 transition-colors font-bold text-emerald-300 flex items-center gap-1 text-xs"
+              >
+                List a Book
+              </button>
+              <span className="text-slate-700">•</span>
+              <a href="#catalog" className="hover:text-white transition-colors text-xs">
+                Buy Books
+              </a>
+              <span className="text-slate-700">•</span>
+              <button
+                onClick={() => setContactModalOpen(true)}
+                className="hover:text-emerald-400 text-slate-300 transition-colors flex items-center gap-1.5 font-semibold text-xs"
+              >
+                <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Contact</span>
+              </button>
+              <span className="text-slate-700">•</span>
+              <button
+                onClick={() => setAdminDashboardOpen(true)}
+                className="hover:text-cyan-400 text-slate-300 transition-colors flex items-center gap-1.5 font-semibold text-xs"
+              >
+                <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Store Dashboard</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 text-slate-400">
-            <button
-              onClick={() => setSellModalOpen(true)}
-              className="hover:text-emerald-400 transition-colors font-bold text-emerald-300 flex items-center gap-1"
-            >
-              List a Book
-            </button>
-            <a href="#catalog" className="hover:text-white transition-colors">
-              Buy Books
-            </a>
-            <button
-              onClick={() => setContactModalOpen(true)}
-              className="hover:text-emerald-400 text-slate-300 transition-colors flex items-center gap-1 font-semibold"
-            >
-              <Mail className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Contact Authority</span>
-            </button>
-            <button
-              onClick={() => setAdminDashboardOpen(true)}
-              className="hover:text-cyan-400 text-slate-300 transition-colors flex items-center gap-1 font-semibold"
-            >
-              <Shield className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Store Dashboard</span>
-            </button>
+          <div className="pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500 text-center sm:text-left">
+            <p>© {new Date().getFullYear()} FolioVerse Book Store. All rights reserved.</p>
+            <p className="text-slate-400">Direct inquiries routed to <span className="text-emerald-400 font-mono">bipronathsaha@gmail.com</span></p>
           </div>
         </div>
       </footer>

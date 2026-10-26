@@ -116,7 +116,7 @@ export const HeroSection = ({
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-5 py-3 sm:py-3.5 text-xs sm:text-sm font-semibold text-slate-200 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 rounded-xl shadow-sm transition-all active:scale-95"
           >
             <Mail className="w-4 h-4 text-emerald-400" />
-            <span>Contact Authority</span>
+            <span>Contact</span>
           </button>
         </div>
 

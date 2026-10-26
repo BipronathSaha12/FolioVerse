@@ -84,11 +84,11 @@ The catalog must strictly categorize every book into one of 5 main genres with d
 ### 4.3 Navigation & Client-Side UI
 - **Branded Navbar:** Includes official logo (`src/assets/projects/folioverse_logo.jpg`), live inventory beacon, genre dropdown, dashboard button, and mobile hamburger drawer.
 - **Mobile Responsive Drawer:** Slide-over navigation drawer locking body scroll, providing role choices, genre filters, and quick CTAs.
-- **Client-Side Footer:** Contains store navigation, "List a Book", "Buy Books", "Store Dashboard", and "Contact Authority". **No raw developer API endpoints are exposed in the client-side footer.**
+- **Client-Side Footer:** Contains store navigation, "List a Book", "Buy Books", "Store Dashboard", "Contact", and live direct contact info (Phone: `+8801559503222`, Email: `contact@folioverse.com`). **No raw developer API endpoints are exposed in the client-side footer.**
 
-### 4.4 Contact Authority Routing
-- **Contact Modal:** Includes full name, email address, subject, and message.
-- **Direct Mailto Trigger:** Submitting opens the user's email client directly addressed to `bipronathsaha@gmail.com` with formatted inquiry content, and renders in-app confirmation.
+### 4.4 Contact Routing
+- **Contact Modal:** Includes recipient's name, email address, contact number, and message box.
+- **Direct Mailto Trigger:** Submitting routes inquiry directly to `bipronathsaha@gmail.com` with formatted inquiry content, and renders in-app confirmation with copy and reopen actions.
 
 ### 4.5 Store Admin Dashboard (Mobile Responsive)
 - **Overview Tab:** Displays total catalog size (2,000 books), in-stock units, low-stock count, sold-out count, and category percentage bars.
