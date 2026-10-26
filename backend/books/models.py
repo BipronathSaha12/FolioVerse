@@ -156,18 +156,20 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     """
-    Line item inside an Order, capturing historical price and book snapshot at purchase.
+    Line item inside an Order, capturing historical price, category, and book snapshot at purchase.
     """
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name='order_items')
     title = models.CharField(max_length=255)
     author = models.CharField(max_length=255)
+    category = models.CharField(max_length=100, default='Literature & Novel', blank=True, db_index=True)
+    cover_image = models.URLField(max_length=500, blank=True, default='')
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
 
     def __str__(self):
-        return f"{self.quantity}x {self.title} (৳{self.subtotal})"
+        return f"{self.quantity}x {self.title} [{self.category}] (৳{self.subtotal})"
 
 
 class ContactInquiry(models.Model):

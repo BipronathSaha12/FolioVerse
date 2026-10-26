@@ -3,6 +3,7 @@ import random
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import Count, Q
+from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -176,17 +177,145 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Order.objects.all().prefetch_related('items')
         
-        # Check query parameter for customer_email
-        email = self.request.query_params.get('customer_email')
+        # Check query parameter for customer_email or customer_username
+        email = self.request.query_params.get('customer_email') or self.request.query_params.get('email')
+        username = self.request.query_params.get('customer_username') or self.request.query_params.get('username')
+        
         if email:
             qs = qs.filter(customer_email__iexact=email.strip())
+        elif username:
+            qs = qs.filter(Q(user__username__iexact=username.strip()) | Q(customer_name__iexact=username.strip()))
 
-        # If user is authenticated and not staff, scope to their user id or email
+        # If user is authenticated and not staff, strictly scope to their user id or email
         user = self.request.user
         if user and user.is_authenticated and not (user.is_staff or user.is_superuser):
             qs = qs.filter(Q(user=user) | Q(customer_email__iexact=user.email))
 
         return qs.order_by('-id')
+
+    @action(detail=False, methods=['get'], url_path='buyer-summary', permission_classes=[permissions.AllowAny])
+    def buyer_summary(self, request):
+        """
+        Dynamic analytics endpoint for the Buyer Dashboard:
+        - Resolves the specific buyer (authenticated user, or via ?username= / ?customer_email=)
+        - Computes:
+          1. Total orders count & total amount spent in BDT
+          2. Total books ordered breakdown by category (e.g. Science, Fiction, Literature, Technology, Music)
+          3. Total cleared payments breakdown by payment method (bKash, Nagad, Rocket, COD)
+          4. Categorized cleared books (what category/type of books cleared payment)
+          5. Recent order list with item details, categories, and payment confirmation
+        """
+        target_user = request.user if (request.user and request.user.is_authenticated) else None
+        username_param = request.query_params.get('username') or request.query_params.get('customer_username')
+        email_param = request.query_params.get('email') or request.query_params.get('customer_email')
+
+        if not target_user and username_param:
+            target_user = User.objects.filter(username__iexact=username_param.strip()).first()
+
+        orders_qs = Order.objects.all().prefetch_related('items')
+        if target_user and not (target_user.is_staff or target_user.is_superuser):
+            orders_qs = orders_qs.filter(Q(user=target_user) | Q(customer_email__iexact=target_user.email))
+        elif email_param:
+            orders_qs = orders_qs.filter(customer_email__iexact=email_param.strip())
+        elif username_param:
+            orders_qs = orders_qs.filter(Q(user__username__iexact=username_param.strip()) | Q(customer_name__iexact=username_param.strip()))
+        elif target_user and (target_user.is_staff or target_user.is_superuser):
+            if not username_param and not email_param:
+                orders_qs = orders_qs.filter(user=target_user)
+
+        total_orders = orders_qs.count()
+        total_spent = sum((o.total_amount for o in orders_qs), Decimal('0.00'))
+
+        category_order_counts = {}
+        category_order_amounts = {}
+        category_cleared_counts = {}
+        category_cleared_amounts = {}
+        total_books_ordered = 0
+        total_books_cleared = 0
+        cleared_payment_amount = Decimal('0.00')
+
+        payment_breakdown = {
+            'bkash': {'label': 'bKash Mobile Banking', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': True},
+            'nagad': {'label': 'Nagad Mobile Banking', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': True},
+            'rocket': {'label': 'Rocket Mobile Banking', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': True},
+            'cod': {'label': 'Cash on Delivery (COD)', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': False},
+        }
+
+        for order in orders_qs:
+            method = order.payment_method.lower()
+            if method not in payment_breakdown:
+                payment_breakdown[method] = {'label': method.upper(), 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': False}
+
+            payment_breakdown[method]['orders'] += 1
+            payment_breakdown[method]['amount'] += order.total_amount
+
+            is_order_cleared = (order.payment_status == 'paid' or order.status == 'delivered' or method in ['bkash', 'nagad', 'rocket'])
+            if is_order_cleared:
+                cleared_payment_amount += order.total_amount
+
+            order_items = order.items.all()
+            for itm in order_items:
+                cat = itm.category or (itm.book.category if itm.book else 'Literature & Novel')
+                qty = itm.quantity
+                subtotal = itm.subtotal
+
+                total_books_ordered += qty
+                payment_breakdown[method]['books'] += qty
+                category_order_counts[cat] = category_order_counts.get(cat, 0) + qty
+                category_order_amounts[cat] = category_order_amounts.get(cat, Decimal('0.00')) + subtotal
+
+                if is_order_cleared:
+                    total_books_cleared += qty
+                    category_cleared_counts[cat] = category_cleared_counts.get(cat, 0) + qty
+                    category_cleared_amounts[cat] = category_cleared_amounts.get(cat, Decimal('0.00')) + subtotal
+
+        categories_ordered = [
+            {
+                'category': cat,
+                'count': count,
+                'total_amount': f"{category_order_amounts.get(cat, Decimal('0.00')):.2f}",
+                'percentage': round((count / total_books_ordered * 100), 1) if total_books_ordered > 0 else 0
+            }
+            for cat, count in sorted(category_order_counts.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+        cleared_categories = [
+            {
+                'category': cat,
+                'count': count,
+                'total_amount': f"{category_cleared_amounts.get(cat, Decimal('0.00')):.2f}",
+                'percentage': round((count / total_books_cleared * 100), 1) if total_books_cleared > 0 else 0
+            }
+            for cat, count in sorted(category_cleared_counts.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+        formatted_payment_breakdown = [
+            {
+                'method': k,
+                'label': v['label'],
+                'orders': v['orders'],
+                'books': v['books'],
+                'amount': f"{v['amount']:.2f}",
+                'is_cleared': v['cleared'],
+            }
+            for k, v in payment_breakdown.items() if v['orders'] > 0
+        ]
+
+        serialized_orders = OrderSerializer(orders_qs[:30], many=True).data
+
+        return Response({
+            'buyer_username': target_user.username if target_user else username_param or 'Guest Buyer',
+            'buyer_email': target_user.email if target_user else email_param or '',
+            'total_orders': total_orders,
+            'total_books_ordered': total_books_ordered,
+            'total_spent': f"{total_spent:.2f}",
+            'cleared_payment_amount': f"{cleared_payment_amount:.2f}",
+            'cleared_books_count': total_books_cleared,
+            'categories_ordered': categories_ordered,
+            'cleared_categories': cleared_categories,
+            'payment_methods_breakdown': formatted_payment_breakdown,
+            'recent_orders': serialized_orders,
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='process-payment', permission_classes=[permissions.AllowAny])
     def process_payment(self, request):
@@ -265,12 +394,21 @@ class OrderViewSet(viewsets.ModelViewSet):
         if payment_method in ['bkash', 'nagad', 'rocket'] and not transaction_id:
             transaction_id = f"{payment_method.upper()}-TXN-{int(time.time() % 1000000):06d}{random.randint(10, 99)}"
 
+        # Resolve User association reliably
+        resolved_user = request.user if (request.user and request.user.is_authenticated) else None
+        if not resolved_user:
+            username_field = (data.get('username') or '').strip()
+            if username_field:
+                resolved_user = User.objects.filter(username__iexact=username_field).first()
+            if not resolved_user and customer_email:
+                resolved_user = User.objects.filter(email__iexact=customer_email).first()
+
         # Atomic checkout: lock books and decrement inventory
         with transaction.atomic():
             order_number = f"FV-ORD-{int(time.time())}-{random.randint(1000, 9999)}"
             order = Order.objects.create(
                 order_number=order_number,
-                user=request.user if request.user and request.user.is_authenticated else None,
+                user=resolved_user,
                 customer_name=customer_name,
                 customer_email=customer_email,
                 customer_phone=customer_phone,
@@ -328,6 +466,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                     book=book,
                     title=book.title,
                     author=book.author,
+                    category=book.category or 'Literature & Novel',
+                    cover_image=book.cover_image or '',
                     unit_price=book.price,
                     quantity=qty,
                     subtotal=item_subtotal,

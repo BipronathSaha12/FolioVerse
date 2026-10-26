@@ -57,8 +57,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         from .models import OrderItem
         model = OrderItem
-        fields = ['id', 'book', 'title', 'author', 'unit_price', 'quantity', 'subtotal']
-        read_only_fields = ['id', 'title', 'author', 'unit_price', 'subtotal']
+        fields = ['id', 'book', 'title', 'author', 'category', 'cover_image', 'unit_price', 'quantity', 'subtotal']
+        read_only_fields = ['id', 'title', 'author', 'category', 'cover_image', 'unit_price', 'subtotal']
 
 
 class OrderSerializer(serializers.ModelSerializer):

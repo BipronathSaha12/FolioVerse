@@ -67,6 +67,7 @@ export const orderService = {
   createOrder: (data) => api.post('/orders/', data),
   getOrders: (params = {}) => api.get('/orders/', { params }),
   getOrder: (id) => api.get(`/orders/${id}/`),
+  getBuyerSummary: (params = {}) => api.get('/orders/buyer-summary/', { params }),
   processPayment: (data) => api.post('/orders/process-payment/', data),
 };
 
