@@ -17,8 +17,9 @@ import {
   Edit3,
   Trash2,
   ExternalLink,
+  Mail,
 } from 'lucide-react';
-import { bookService, orderService } from '../services/api';
+import { bookService, orderService, contactService } from '../services/api';
 
 export const AdminDashboardModal = ({
   isOpen,
@@ -41,6 +42,27 @@ export const AdminDashboardModal = ({
   const [actionMsg, setActionMsg] = useState('');
   const [liveOrders, setLiveOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [inquiries, setInquiries] = useState([]);
+  const [inquiriesLoading, setInquiriesLoading] = useState(false);
+
+  // Fetch inquiries
+  const loadInquiries = async () => {
+    setInquiriesLoading(true);
+    try {
+      const res = await contactService.getInquiries();
+      setInquiries(res.data.results || res.data || []);
+    } catch (err) {
+      console.warn('Failed to load inquiries:', err);
+    } finally {
+      setInquiriesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'inquiries') {
+      loadInquiries();
+    }
+  }, [isOpen, activeTab]);
 
   // Fetch taxonomy and stats
   useEffect(() => {
@@ -211,6 +233,17 @@ export const AdminDashboardModal = ({
             }`}
           >
             Orders & Transactions
+          </button>
+          <button
+            onClick={() => setActiveTab('inquiries')}
+            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'inquiries'
+                ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold'
+                : 'text-slate-400 hover:text-white bg-slate-950/60'
+            }`}
+          >
+            <Mail className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Messages & Inquiries ({inquiries.length})</span>
           </button>
         </div>
 
@@ -580,6 +613,90 @@ export const AdminDashboardModal = ({
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: INQUIRIES & MESSAGES */}
+          {activeTab === 'inquiries' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-emerald-400" />
+                    <span>Customer Contact Messages</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Inquiries received directly from the storefront contact form
+                  </p>
+                </div>
+                <button
+                  onClick={loadInquiries}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${inquiriesLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {inquiriesLoading ? (
+                <div className="py-12 text-center text-xs text-slate-400">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-cyan-400" />
+                  Loading customer inquiries...
+                </div>
+              ) : inquiries.length > 0 ? (
+                <div className="space-y-3">
+                  {inquiries.map((inq) => (
+                    <div
+                      key={inq.id}
+                      className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">{inq.name}</span>
+                          <span className="text-slate-500">•</span>
+                          <a
+                            href={`mailto:${inq.email}`}
+                            className="text-cyan-400 hover:underline font-mono text-[11px]"
+                          >
+                            {inq.email}
+                          </a>
+                        </div>
+                        <span className="text-[10px] text-slate-500">
+                          {new Date(inq.created_at).toLocaleString()}
+                        </span>
+                      </div>
+
+                      {inq.contact && (
+                        <div className="text-[11px] text-slate-400">
+                          Contact / Phone: <span className="text-slate-200 font-mono">{inq.contact}</span>
+                        </div>
+                      )}
+
+                      <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-850 text-slate-300 text-xs leading-relaxed whitespace-pre-wrap">
+                        {inq.message}
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <a
+                          href={`mailto:${inq.email}?subject=Re: FolioVerse Inquiry&body=Hi ${inq.name},%0D%0A%0D%0A`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-colors border border-emerald-500/25"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Reply to {inq.name}</span>
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-xs text-slate-400 bg-slate-950/60 rounded-2xl border border-slate-800">
+                  <Mail className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                  <p className="font-medium text-slate-300">No contact inquiries yet.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Customer messages submitted through the Contact modal will appear here in real-time.
+                  </p>
                 </div>
               )}
             </div>

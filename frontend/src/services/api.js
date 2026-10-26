@@ -69,4 +69,10 @@ export const orderService = {
   getOrder: (id) => api.get(`/orders/${id}/`),
 };
 
+export const contactService = {
+  sendInquiry: (data) => api.post('/contact/', data),
+  getInquiries: () => api.get('/contact/'),
+};
+
 export default api;
+

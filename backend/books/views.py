@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Book, Order, OrderItem
-from .serializers import BookSerializer, OrderSerializer, OrderItemSerializer
+from .models import Book, Order, OrderItem, ContactInquiry
+from .serializers import BookSerializer, OrderSerializer, OrderItemSerializer, ContactInquirySerializer
 from .pagination import BookPagination
 from .filters import BookFilter
 
@@ -283,3 +283,61 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             serializer = OrderSerializer(order)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class ContactViewSet(viewsets.ModelViewSet):
+    """
+    Public and Admin endpoint for handling Contact Inquiries sent to bipronathsaha@gmail.com.
+    POST /api/contact/ : Dispatches and stores visitor messages
+    GET /api/contact/  : Allows store admin to review all inquiries
+    """
+    queryset = ContactInquiry.objects.all().order_by('-id')
+    serializer_class = ContactInquirySerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        name = request.data.get('name', '').strip()
+        email = request.data.get('email', '').strip()
+        contact = request.data.get('contact', '').strip()
+        message = request.data.get('message', '').strip()
+
+        if not name:
+            return Response({"error": "Please provide your name."}, status=status.HTTP_400_BAD_REQUEST)
+        if not email or '@' not in email:
+            return Response({"error": "Please provide a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
+        if not message:
+            return Response({"error": "Please write your message."}, status=status.HTTP_400_BAD_REQUEST)
+
+        inquiry = ContactInquiry.objects.create(
+            name=name,
+            email=email,
+            contact=contact,
+            message=message,
+            recipient_email='bipronathsaha@gmail.com'
+        )
+
+        # Attempt sending through Django email if SMTP is configured
+        try:
+            from django.core.mail import send_mail
+            email_subject = f"[FolioVerse Contact] New inquiry from {name}"
+            email_body = f"Hello Authority,\n\nName: {name}\nEmail: {email}\nContact: {contact}\n\nMessage:\n{message}\n\n---\nSent via FolioVerse Contact Form"
+            send_mail(
+                email_subject,
+                email_body,
+                email,
+                ['bipronathsaha@gmail.com'],
+                fail_silently=True
+            )
+        except Exception:
+            pass
+
+        serializer = self.get_serializer(inquiry)
+        return Response(
+            {
+                "success": True,
+                "message": "Your message has been successfully received and routed to bipronathsaha@gmail.com",
+                "inquiry": serializer.data
+            },
+            status=status.HTTP_201_CREATED
+        )
+

@@ -84,3 +84,21 @@ class OrderSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'order_number', 'total_amount', 'created_at', 'updated_at']
+
+
+class ContactInquirySerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import ContactInquiry
+        model = ContactInquiry
+        fields = [
+            'id',
+            'name',
+            'email',
+            'contact',
+            'message',
+            'recipient_email',
+            'created_at',
+            'is_resolved',
+        ]
+        read_only_fields = ['id', 'recipient_email', 'created_at', 'is_resolved']
+

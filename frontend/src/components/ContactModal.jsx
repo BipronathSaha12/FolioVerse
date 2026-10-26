@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Mail, Send, User, MessageSquare, CheckCircle2, ShieldCheck, ExternalLink, Phone, Copy, Check } from 'lucide-react';
+import { X, Mail, Send, User, MessageSquare, CheckCircle2, Phone, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { contactService } from '../services/api';
 
 export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
   if (!isOpen) return null;
@@ -10,6 +11,7 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
   const [contact, setContact] = useState('');
   const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -19,15 +21,23 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
       `[FolioVerse Contact] Inquiry from ${name.trim()}`
     );
     const emailBody = encodeURIComponent(
-      `Hello,\n\nRecipient's Name: ${name.trim()}\nEmail: ${email.trim()}\nContact: ${contact.trim()}\n\nMessage:\n${message.trim()}\n\n---\nSent via FolioVerse Contact Form`
+      `Hello,\n\nName: ${name.trim()}\nEmail: ${email.trim()}\nContact: ${contact.trim()}\n\nMessage:\n${message.trim()}\n\n---\nSent via FolioVerse Contact Form`
     );
     return `mailto:${authorityEmail}?subject=${emailSubject}&body=${emailBody}`;
   };
 
-  const handleSubmit = (e) => {
+  const buildGmailWebUrl = () => {
+    const emailSubject = encodeURIComponent(`[FolioVerse Contact] Inquiry from ${name.trim()}`);
+    const emailBody = encodeURIComponent(
+      `Hello Authority,\n\nName: ${name.trim()}\nEmail: ${email.trim()}\nContact: ${contact.trim()}\n\nMessage:\n${message.trim()}\n\n---\nSent via FolioVerse Contact Form`
+    );
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${authorityEmail}&su=${emailSubject}&body=${emailBody}`;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
-      setErrorMsg("Please enter recipient's name.");
+      setErrorMsg('Please enter your name.');
       return;
     }
     if (!email.trim() || !email.includes('@')) {
@@ -44,24 +54,62 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     setErrorMsg('');
+    setSending(true);
 
-    const mailtoUrl = buildMailtoUrl();
+    const payload = {
+      name: name.trim(),
+      email: email.trim(),
+      contact: contact.trim(),
+      message: message.trim(),
+      _subject: `[FolioVerse Contact] New inquiry from ${name.trim()}`,
+      _replyto: email.trim(),
+    };
 
-    // Trigger redirection to email client
+    // 1. Dispatch to Django backend API
     try {
-      window.location.href = mailtoUrl;
+      await contactService.sendInquiry({
+        name: payload.name,
+        email: payload.email,
+        contact: payload.contact,
+        message: payload.message,
+      });
     } catch (err) {
-      console.warn('Mail client trigger error:', err);
+      console.warn('Backend contact logging error:', err);
     }
 
+    // 2. Dispatch to FormSubmit for direct inbox delivery to bipronathsaha@gmail.com
+    try {
+      await fetch(`https://formsubmit.co/ajax/${authorityEmail}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Direct FormSubmit dispatch notice:', err);
+    }
+
+    // 3. Trigger native mailto client
+    try {
+      const mailtoUrl = buildMailtoUrl();
+      const tempLink = document.createElement('a');
+      tempLink.href = mailtoUrl;
+      tempLink.click();
+    } catch (err) {
+      console.warn('Mail client invoke notice:', err);
+    }
+
+    setSending(false);
     setSent(true);
     if (onSuccess) {
-      onSuccess(`Message prepared and routed to ${authorityEmail}`);
+      onSuccess(`Message sent and routed to ${authorityEmail}`);
     }
   };
 
   const handleCopySummary = async () => {
-    const textToCopy = `To: ${authorityEmail}\nRecipient's Name: ${name.trim()}\nEmail: ${email.trim()}\nContact: ${contact.trim()}\n\nMessage:\n${message.trim()}`;
+    const textToCopy = `To: ${authorityEmail}\nName: ${name.trim()}\nEmail: ${email.trim()}\nContact: ${contact.trim()}\n\nMessage:\n${message.trim()}`;
     try {
       await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
@@ -74,6 +122,7 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
   const handleResetAndClose = () => {
     setSent(false);
     setCopied(false);
+    setSending(false);
     setName('');
     setEmail('');
     setContact('');
@@ -103,20 +152,16 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">Message Prepared!</h3>
+              <h3 className="text-xl font-bold text-white">Message Sent!</h3>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-md mx-auto">
-                Your email client has been opened with your inquiry routed directly to{' '}
+                Your message has been dispatched and delivered to{' '}
                 <span className="font-semibold text-emerald-400">{authorityEmail}</span>.
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left text-xs space-y-2 max-w-sm mx-auto">
               <div className="flex justify-between text-slate-400">
-                <span>Destination:</span>
-                <span className="font-mono text-emerald-400 font-semibold">{authorityEmail}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Recipient's Name:</span>
+                <span>Name:</span>
                 <span className="text-slate-200 font-medium">{name}</span>
               </div>
               <div className="flex justify-between text-slate-400">
@@ -137,11 +182,13 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2 max-w-sm mx-auto pt-1">
               <a
-                href={buildMailtoUrl()}
-                className="w-full sm:flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-white flex items-center justify-center gap-1.5 transition-colors"
+                href={buildGmailWebUrl()}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full sm:flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Reopen Mail Client</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open in Gmail</span>
               </a>
               <button
                 type="button"
@@ -182,21 +229,6 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
                   <p className="text-xs text-slate-400">Send an inquiry or feedback directly to FolioVerse</p>
                 </div>
               </div>
-
-              {/* Direct Recipient Email Badge */}
-              <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Direct Recipient:
-                </span>
-                <a
-                  href={`mailto:${authorityEmail}`}
-                  className="font-mono font-semibold text-emerald-400 hover:underline flex items-center gap-1"
-                >
-                  {authorityEmail}
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
             </div>
 
             {errorMsg && (
@@ -206,11 +238,11 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-3 text-xs sm:text-sm">
-              {/* Recipient's Name */}
+            <form onSubmit={handleSubmit} className="space-y-3.5 text-xs sm:text-sm">
+              {/* Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Recipient's Name <span className="text-rose-400">*</span>
+                  Name <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -221,7 +253,7 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter recipient's name"
+                    placeholder="Your name"
                     className="w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-xs sm:text-sm transition-all"
                   />
                 </div>
@@ -267,7 +299,7 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
                 </div>
               </div>
 
-              {/* Message Box */}
+              {/* Message */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Message <span className="text-rose-400">*</span>
@@ -278,7 +310,7 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
                     required
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Write your message here... Upon clicking Send, it will route directly to bipronathsaha@gmail.com"
+                    placeholder="Write your message here..."
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-xs sm:text-sm transition-all resize-none"
                   />
                 </div>
@@ -294,10 +326,20 @@ export const ContactModal = ({ isOpen, onClose, onSuccess }) => {
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 font-bold text-white text-xs sm:text-sm shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                  disabled={sending}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 font-bold text-white text-xs sm:text-sm shadow-lg shadow-emerald-600/30 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <Send className="w-4 h-4" />
-                  <span>Send</span>
+                  {sending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Send</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

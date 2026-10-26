@@ -19,7 +19,11 @@ import {
   Shield,
   Store,
   Layers,
+  Sun,
+  Moon,
+  Palette,
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export const Navbar = ({
   onOpenAuth,
@@ -35,8 +39,10 @@ export const Navbar = ({
 }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const { totalItems, subtotal, openCart } = useCart();
+  const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [literatureMenuOpen, setLiteratureMenuOpen] = useState(false);
 
   // Close dropdown on escape key
   useEffect(() => {
@@ -44,6 +50,7 @@ export const Navbar = ({
       if (e.key === 'Escape') {
         setMobileMenuOpen(false);
         setCategoryDropdownOpen(false);
+        setLiteratureMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -230,28 +237,72 @@ export const Navbar = ({
               )}
             </div>
 
-            {/* Quick Genre Switcher Pills */}
-            <button
-              onClick={() => handleCategoryClick('Literature & Novel', 'Bengali Literature')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                selectedSubcategory === 'Bengali Literature'
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800/80'
-              }`}
-            >
-              🇧🇩 Bengali Lit.
-            </button>
+            {/* Literature Submenu Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setLiteratureMenuOpen(!literatureMenuOpen);
+                  setCategoryDropdownOpen(false);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                  selectedCategory === 'Literature & Novel'
+                    ? 'bg-gradient-to-r from-emerald-500/20 to-indigo-500/20 border-emerald-500/40 text-emerald-300 shadow-sm'
+                    : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800/80'
+                }`}
+                title="Literature Menu"
+              >
+                <span>📚 Literature</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${literatureMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-            <button
-              onClick={() => handleCategoryClick('Literature & Novel', 'English Literature')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                selectedSubcategory === 'English Literature'
-                  ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300 shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800/80'
-              }`}
-            >
-              🇬🇧 English Classics
-            </button>
+              {literatureMenuOpen && (
+                <div className="absolute left-0 mt-2 w-56 rounded-2xl bg-slate-900/95 border border-slate-700/80 shadow-2xl p-2 z-50 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    onClick={() => {
+                      handleCategoryClick('Literature & Novel', '');
+                      setLiteratureMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-between ${
+                      selectedCategory === 'Literature & Novel' && !selectedSubcategory
+                        ? 'bg-cyan-500/20 text-cyan-300'
+                        : 'text-slate-200 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <span>All Literature & Novels</span>
+                    <span className="text-[10px] text-slate-500">View All</span>
+                  </button>
+                  <div className="my-1 border-t border-slate-800"></div>
+                  <button
+                    onClick={() => {
+                      handleCategoryClick('Literature & Novel', 'Bengali Literature');
+                      setLiteratureMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors flex items-center justify-between ${
+                      selectedSubcategory === 'Bengali Literature'
+                        ? 'bg-emerald-500/20 text-emerald-300 font-bold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <span>🇧🇩 Bengali Literature</span>
+                    <span className="text-[10px] text-emerald-400">Classics</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleCategoryClick('Literature & Novel', 'English Literature');
+                      setLiteratureMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors flex items-center justify-between ${
+                      selectedSubcategory === 'English Literature'
+                        ? 'bg-indigo-500/20 text-indigo-300 font-bold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <span>🇬🇧 English Literature</span>
+                    <span className="text-[10px] text-indigo-400">World</span>
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Store Dashboard link */}
             <button
@@ -272,8 +323,32 @@ export const Navbar = ({
             </button>
           </nav>
 
-          {/* Desktop Right Actions: Cart, Sell CTA & Auth */}
-          <div className="hidden lg:flex items-center gap-3">
+          {/* Desktop Right Actions: Theme, Cart, Sell CTA & Auth */}
+          <div className="hidden lg:flex items-center gap-2.5">
+            {/* Theme Toggle Button (Bright vs Purple) */}
+            <button
+              onClick={toggleTheme}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-all text-xs font-semibold shadow-sm active:scale-95 ${
+                theme === 'bright'
+                  ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-300 shadow-purple-500/10'
+                  : 'bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 border-purple-500/40 shadow-purple-500/25'
+              }`}
+              title={`Switch to ${theme === 'bright' ? 'Purple' : 'Bright'} Theme`}
+              aria-label="Toggle Theme"
+            >
+              {theme === 'bright' ? (
+                <>
+                  <Palette className="w-4 h-4 text-purple-600 animate-pulse-subtle" />
+                  <span className="hidden xl:inline">Purple Theme</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="w-4 h-4 text-amber-300 animate-pulse-subtle" />
+                  <span className="hidden xl:inline">Bright Theme</span>
+                </>
+              )}
+            </button>
+
             {/* Prominent Cart Trigger Pill */}
             <button
               onClick={openCart}
@@ -355,6 +430,24 @@ export const Navbar = ({
 
           {/* Small Device Top Bar Controls (< 1024px) */}
           <div className="lg:hidden flex items-center gap-2">
+            {/* Mobile Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-xl border transition-all active:scale-95 ${
+                theme === 'bright'
+                  ? 'bg-purple-100 text-purple-700 border-purple-300'
+                  : 'bg-purple-950/60 text-purple-300 border-purple-500/40'
+              }`}
+              aria-label="Toggle Theme"
+              title={`Toggle ${theme === 'bright' ? 'Purple' : 'Bright'} Theme`}
+            >
+              {theme === 'bright' ? (
+                <Palette className="w-4 h-4 text-purple-600" />
+              ) : (
+                <Sun className="w-4 h-4 text-amber-300" />
+              )}
+            </button>
+
             {/* Mobile Cart Trigger */}
             <button
               onClick={openCart}
@@ -514,45 +607,48 @@ export const Navbar = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleCategoryClick('Literature & Novel', 'Bengali Literature')}
-                    className={`p-3 rounded-xl border text-left text-xs font-semibold flex items-center justify-between ${
-                      selectedSubcategory === 'Bengali Literature'
-                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-300'
-                    }`}
-                  >
-                    <span>🇧🇩 Bengali Literature</span>
-                    <span className="text-[10px] text-emerald-400 font-normal">Rabindranath, Nazrul</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleCategoryClick('Literature & Novel', 'English Literature')}
-                    className={`p-3 rounded-xl border text-left text-xs font-semibold flex items-center justify-between ${
-                      selectedSubcategory === 'English Literature'
-                        ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-300'
-                    }`}
-                  >
-                    <span>🇬🇧 English Literature</span>
-                    <span className="text-[10px] text-indigo-400 font-normal">Shakespeare, Orwell</span>
-                  </button>
-
                   {categories.map((cat) => (
-                    <button
-                      key={cat.name}
-                      onClick={() => handleCategoryClick(cat.name, '')}
-                      className={`p-3 rounded-xl border text-left text-xs font-semibold flex items-center justify-between ${
-                        selectedCategory === cat.name
-                          ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-300'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span>{cat.icon}</span>
-                        <span>{cat.name}</span>
-                      </span>
-                    </button>
+                    <div key={cat.name} className="space-y-1">
+                      <button
+                        onClick={() => handleCategoryClick(cat.name, '')}
+                        className={`w-full p-3 rounded-xl border text-left text-xs font-semibold flex items-center justify-between ${
+                          selectedCategory === cat.name
+                            ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                            : 'bg-slate-900 border-slate-800 text-slate-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>{cat.icon}</span>
+                          <span>{cat.name}</span>
+                        </span>
+                      </button>
+
+                      {/* If Literature & Novel, render Bengali and English Literature subcategories cleanly beneath */}
+                      {cat.name === 'Literature & Novel' && (
+                        <div className="grid grid-cols-2 gap-1.5 pl-3 pt-0.5">
+                          <button
+                            onClick={() => handleCategoryClick('Literature & Novel', 'Bengali Literature')}
+                            className={`p-2 rounded-lg text-left text-[11px] font-semibold border transition-all ${
+                              selectedSubcategory === 'Bengali Literature'
+                                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            🇧🇩 Bengali Lit.
+                          </button>
+                          <button
+                            onClick={() => handleCategoryClick('Literature & Novel', 'English Literature')}
+                            className={`p-2 rounded-lg text-left text-[11px] font-semibold border transition-all ${
+                              selectedSubcategory === 'English Literature'
+                                ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
+                                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            🇬🇧 English Lit.
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

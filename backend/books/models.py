@@ -169,3 +169,25 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity}x {self.title} (${self.subtotal})"
+
+
+class ContactInquiry(models.Model):
+    """
+    Inquiry submitted through the FolioVerse contact form, directed to bipronathsaha@gmail.com.
+    """
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    contact = models.CharField(max_length=100)
+    message = models.TextField()
+    recipient_email = models.EmailField(default='bipronathsaha@gmail.com')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_resolved = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-id']
+        verbose_name = 'Contact Inquiry'
+        verbose_name_plural = 'Contact Inquiries'
+
+    def __str__(self):
+        return f"Inquiry from {self.name} ({self.email}) at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+

@@ -53,47 +53,8 @@ export const HeroSection = ({
           . Buy with live inventory availability, or list your own books for sale with zero hassle.
         </p>
 
-        {/* Onboarding Role Cards: Join as Buyer vs Seller */}
-        <div className="mt-6 sm:mt-8 max-w-xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 px-2">
-          <button
-            onClick={() => onOpenAuth && onOpenAuth('register', 'buyer')}
-            className="flex items-center gap-3 p-3 sm:p-3.5 rounded-2xl bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/30 hover:border-cyan-400 text-left transition-all active:scale-95 group shadow-sm"
-          >
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform shrink-0">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
-                <span>Join as Book Buyer</span>
-                <ArrowRight className="w-3.5 h-3.5 text-cyan-400 group-hover:translate-x-1 transition-transform" />
-              </div>
-              <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                Browse 2,000+ books & order instantly
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onOpenAuth && onOpenAuth('register', 'seller')}
-            className="flex items-center gap-3 p-3 sm:p-3.5 rounded-2xl bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-500/30 hover:border-emerald-400 text-left transition-all active:scale-95 group shadow-sm"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform shrink-0">
-              <Store className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
-                <span>Join as Book Seller</span>
-                <ArrowRight className="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-1 transition-transform" />
-              </div>
-              <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                List new & used books to readers
-              </div>
-            </div>
-          </button>
-        </div>
-
         {/* Action Buttons */}
-        <div className="mt-6 sm:mt-7 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5">
+        <div className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5">
           <a
             href="#catalog"
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-cyan-600 via-indigo-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 rounded-xl shadow-xl shadow-cyan-600/20 hover:shadow-cyan-500/30 transition-all active:scale-95"

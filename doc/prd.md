@@ -82,18 +82,20 @@ The catalog must strictly categorize every book into one of 5 main genres with d
   - Full modal inspecting condition, language, published date, author, stock status, and ISBN-13.
 
 ### 4.3 Navigation & Client-Side UI
-- **Branded Navbar:** Includes official logo (`src/assets/projects/folioverse_logo.jpg`), live inventory beacon, genre dropdown, dashboard button, and mobile hamburger drawer.
-- **Mobile Responsive Drawer:** Slide-over navigation drawer locking body scroll, providing role choices, genre filters, and quick CTAs.
+- **Branded Navbar:** Includes official logo (`src/assets/projects/folioverse_logo.jpg`), live inventory beacon, genre dropdown, dedicated **Literature Submenu** (with Bengali & English literature sub-items), theme switcher (Bright vs Purple), dashboard button, and mobile hamburger drawer.
+- **Theme Switcher:** Default theme is Bright (light mode), toggling to luxury Purple theme across all client and admin views.
+- **Mobile Responsive Drawer:** Slide-over navigation drawer locking body scroll, providing theme toggle, category filters, and quick CTAs.
 - **Client-Side Footer:** Displays brand identity, literature categories, and direct contact communication channels (Phone: `+8801559503222`, Email: `contact@folioverse.com`). **No raw developer API endpoints are exposed in the client-side footer.**
 
 ### 4.4 Contact Routing
-- **Contact Modal:** Includes recipient's name, email address, contact number, and message box.
-- **Direct Mailto Trigger:** Submitting routes inquiry directly to `bipronathsaha@gmail.com` with formatted inquiry content, and renders in-app confirmation with copy and reopen actions.
+- **Contact Modal:** Clean, straightforward form containing Name, Email, Contact, and Message box.
+- **Reliable Multi-Channel Delivery:** Dispatches directly to `bipronathsaha@gmail.com` via FormSubmit and the backend `/api/contact/` endpoint, with 1-click Gmail Web and native mail compose options.
 
 ### 4.5 Store Admin Dashboard (Mobile Responsive)
 - **Overview Tab:** Displays total catalog size (2,000 books), in-stock units, low-stock count, sold-out count, and category percentage bars.
 - **Inventory Tab:** Searchable live catalog with status filtering, inline `+5 Restock` quick button, Edit, and Delete actions.
 - **Orders Tab:** Activity log of completed transactions with order IDs, buyers, quantities, and totals.
+- **Messages & Inquiries Tab:** Live feed of customer contact submissions with direct email reply links.
 
 ### 4.6 10-Item Pagination with Sliding Window
 - Enforces at least 10 books per page.

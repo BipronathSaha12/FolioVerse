@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider, useCart } from './context/CartContext';
 import { bookService } from './services/api';
@@ -465,10 +466,12 @@ function FolioVerseContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <FolioVerseContent />
-      </CartProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <CartProvider>
+          <FolioVerseContent />
+        </CartProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
