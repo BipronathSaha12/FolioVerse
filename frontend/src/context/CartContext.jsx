@@ -213,6 +213,7 @@ export const CartProvider = ({ children }) => {
   };
 
   const openCart = () => setIsCartOpen(true);
+  const closeCart = () => setIsCartOpen(false);
   const [simulatedSms, setSimulatedSms] = useState(null);
 
   const showSimulatedSms = (data) => {
