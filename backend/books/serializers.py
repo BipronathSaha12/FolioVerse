@@ -33,8 +33,8 @@ class BookSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'created_at', 'updated_at', 'seller_username']
 
     def validate_price(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Price must be a non-negative number.")
+        if value < 180:
+            raise serializers.ValidationError("Price must be at least ৳180 BDT.")
         return value
 
     def validate_stock(self, value):

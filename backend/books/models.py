@@ -87,7 +87,7 @@ class Book(models.Model):
             models.Index(fields=['language']),
         ]
         constraints = [
-            models.CheckConstraint(check=models.Q(price__gte=0), name='book_price_non_negative'),
+            models.CheckConstraint(check=models.Q(price__gte=180), name='book_price_min_180'),
             models.CheckConstraint(check=models.Q(stock__gte=0), name='book_stock_non_negative'),
         ]
 

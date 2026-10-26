@@ -126,8 +126,8 @@ export const BookModal = ({ isOpen, onClose, bookToEdit, onSuccess }) => {
     setError(null);
 
     const parsedPrice = parseFloat(price);
-    if (isNaN(parsedPrice) || parsedPrice < 0) {
-      setError('Please provide a valid non-negative price.');
+    if (isNaN(parsedPrice) || parsedPrice < 180) {
+      setError('Please provide a valid price of at least ৳180 BDT.');
       return;
     }
 
@@ -305,11 +305,11 @@ export const BookModal = ({ isOpen, onClose, bookToEdit, onSuccess }) => {
                 <input
                   type="number"
                   step="0.01"
-                  min="0"
+                  min="180.00"
                   required
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  placeholder="350.00"
+                  placeholder="350.00 (min ৳180)"
                   className="w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>

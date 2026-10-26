@@ -21,7 +21,7 @@ class BookStoreAPITests(TestCase):
             Book.objects.create(
                 title=f"Bengali Book {i}",
                 author="Rabindranath Tagore" if i <= 2 else "Kazi Nazrul Islam",
-                price=10.00 + i * 2,
+                price=180.00 + i * 20,
                 published_date=date(1910 + i, 1, 1),
                 category="Literature & Novel",
                 subcategory="Bengali Literature",
@@ -36,7 +36,7 @@ class BookStoreAPITests(TestCase):
             Book.objects.create(
                 title=f"English Classic {i}",
                 author="George Orwell" if i == 1 else "Jane Austen",
-                price=15.00 + i * 3,
+                price=220.00 + i * 30,
                 published_date=date(1940 + i, 1, 1),
                 category="Literature & Novel",
                 subcategory="English Literature",
@@ -51,7 +51,7 @@ class BookStoreAPITests(TestCase):
             Book.objects.create(
                 title=f"Science Book {i}",
                 author="Stephen Hawking",
-                price=25.00 + i * 5,
+                price=300.00 + i * 50,
                 published_date=date(1980 + i, 1, 1),
                 category="Science",
                 subcategory="Physics",
@@ -66,7 +66,7 @@ class BookStoreAPITests(TestCase):
             Book.objects.create(
                 title="Sold Out Book",
                 author="Rare Author",
-                price=40.00,
+                price=400.00,
                 published_date=date(2000, 1, 1),
                 category="Fiction",
                 subcategory="Fantasy & Magic",
@@ -80,7 +80,7 @@ class BookStoreAPITests(TestCase):
             Book.objects.create(
                 title="Low Stock Book",
                 author="Limited Author",
-                price=30.00,
+                price=280.00,
                 published_date=date(2010, 1, 1),
                 category="Music",
                 subcategory="Music Theory & Composition",
@@ -94,7 +94,7 @@ class BookStoreAPITests(TestCase):
             Book.objects.create(
                 title="Technology Extra",
                 author="Martin Kleppmann",
-                price=50.00,
+                price=500.00,
                 published_date=date(2017, 3, 16),
                 category="Technology",
                 subcategory="Software Architecture",
@@ -195,7 +195,7 @@ class BookStoreAPITests(TestCase):
         payload = {
             "title": "Unauthorized Book",
             "author": "Ghost",
-            "price": "19.99",
+            "price": "189.99",
             "published_date": "2026-01-01"
         }
         response = self.client.post('/api/books/', payload, format='json')
@@ -209,7 +209,7 @@ class BookStoreAPITests(TestCase):
         payload = {
             "title": "Gitanjali Special Edition",
             "author": "Rabindranath Tagore",
-            "price": "29.99",
+            "price": "299.99",
             "published_date": "1910-08-14",
             "category": "Literature & Novel",
             "subcategory": "Bengali Literature",
@@ -223,6 +223,23 @@ class BookStoreAPITests(TestCase):
         self.assertEqual(response.data['title'], "Gitanjali Special Edition")
         self.assertEqual(response.data['author'], "Rabindranath Tagore")
         self.assertEqual(response.data['subcategory'], "Bengali Literature")
+
+    def test_price_must_be_at_least_180_bdt(self):
+        """
+        Requirement: Price must be at least 180 BDT. Lower prices should be rejected.
+        """
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        payload = {
+            "title": "Cheap Book Below Minimum",
+            "author": "Test Author",
+            "price": "120.00",
+            "published_date": "2026-01-01",
+            "category": "Literature & Novel",
+            "subcategory": "Bengali Literature",
+        }
+        response = self.client.post('/api/books/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('price', response.data)
 
     def test_retrieve_single_book(self):
         """
@@ -239,21 +256,21 @@ class BookStoreAPITests(TestCase):
         """
         book = self.books[0]
         # Unauthenticated update should fail
-        response = self.client.patch(f'/api/books/{book.id}/', {"price": "99.99"}, format='json')
+        response = self.client.patch(f'/api/books/{book.id}/', {"price": "399.99"}, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # Authenticated PATCH
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        patch_res = self.client.patch(f'/api/books/{book.id}/', {"price": "99.99"}, format='json')
+        patch_res = self.client.patch(f'/api/books/{book.id}/', {"price": "399.99"}, format='json')
         self.assertEqual(patch_res.status_code, status.HTTP_200_OK)
         book.refresh_from_db()
-        self.assertEqual(float(book.price), 99.99)
+        self.assertEqual(float(book.price), 399.99)
 
         # Authenticated PUT
         put_payload = {
             "title": "Bengali Book 1 Updated",
             "author": "Rabindranath Tagore",
-            "price": "35.50",
+            "price": "350.50",
             "published_date": "1912-01-01",
             "category": "Literature & Novel",
             "subcategory": "Bengali Literature",
