@@ -16,13 +16,14 @@ import { SellBookModal } from './components/SellBookModal';
 import { ContactModal } from './components/ContactModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { BuyerDashboardModal } from './components/BuyerDashboardModal';
+import { SellerDashboardModal } from './components/SellerDashboardModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ToastContainer } from './components/Toast';
 import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Phone } from 'lucide-react';
 
 function FolioVerseContent() {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, isSeller } = useAuth();
   const { openCart } = useCart();
 
   // Books state
@@ -52,6 +53,7 @@ function FolioVerseContent() {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
   const [buyerDashboardOpen, setBuyerDashboardOpen] = useState(false);
+  const [sellerDashboardOpen, setSellerDashboardOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, book: null });
 
   // Cart toast sync
@@ -184,6 +186,7 @@ function FolioVerseContent() {
         onOpenContact={() => setContactModalOpen(true)}
         onOpenDashboard={() => setAdminDashboardOpen(true)}
         onOpenBuyerDashboard={() => setBuyerDashboardOpen(true)}
+        onOpenSellerDashboard={() => setSellerDashboardOpen(true)}
         onSelectCategory={(cat) => {
           setCategoryFilter(cat);
           setSubcategoryFilter('');
@@ -354,25 +357,38 @@ function FolioVerseContent() {
         />
       )}
 
-      {/* Dedicated Buyer Account & Orders Portal */}
-      <BuyerDashboardModal
-        isOpen={buyerDashboardOpen || (!isAdmin && adminDashboardOpen)}
-        onClose={() => {
-          setBuyerDashboardOpen(false);
-          setAdminDashboardOpen(false);
-        }}
-        onOpenCart={() => {
-          setBuyerDashboardOpen(false);
-          setAdminDashboardOpen(false);
-          openCart();
-        }}
-        onBrowseCatalog={() => {
-          setBuyerDashboardOpen(false);
-          setAdminDashboardOpen(false);
-          const catalogEl = document.getElementById('catalog');
-          if (catalogEl) catalogEl.scrollIntoView({ behavior: 'smooth' });
-        }}
-      />
+      {/* Dedicated Seller Portal & Order Fulfillment Dashboard */}
+      {isSeller && (
+        <SellerDashboardModal
+          isOpen={sellerDashboardOpen}
+          onClose={() => setSellerDashboardOpen(false)}
+          onOpenAddBook={() => setSellModalOpen(true)}
+          onEditBook={(book) => setBookModal({ open: true, book })}
+          onRefreshCatalog={fetchBooks}
+        />
+      )}
+
+      {/* Dedicated Buyer Account & Orders Portal (Strictly for buyers, not admin or seller) */}
+      {!isAdmin && !isSeller && (
+        <BuyerDashboardModal
+          isOpen={buyerDashboardOpen || (!isAdmin && !isSeller && adminDashboardOpen)}
+          onClose={() => {
+            setBuyerDashboardOpen(false);
+            setAdminDashboardOpen(false);
+          }}
+          onOpenCart={() => {
+            setBuyerDashboardOpen(false);
+            setAdminDashboardOpen(false);
+            openCart();
+          }}
+          onBrowseCatalog={() => {
+            setBuyerDashboardOpen(false);
+            setAdminDashboardOpen(false);
+            const catalogEl = document.getElementById('catalog');
+            if (catalogEl) catalogEl.scrollIntoView({ behavior: 'smooth' });
+          }}
+        />
+      )}
 
       {/* Book Detail Modal with Instant Buy Button */}
       <BookDetailModal

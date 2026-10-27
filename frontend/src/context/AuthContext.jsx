@@ -20,7 +20,8 @@ export const AuthProvider = ({ children }) => {
           const profileData = res.data;
           const storedRole = localStorage.getItem('folioverse_role');
           const isStaff = Boolean(profileData.is_staff || profileData.is_superuser || profileData.username === 'admin');
-          const finalRole = isStaff ? 'admin' : (storedRole || 'buyer');
+          const isSellerUser = Boolean(profileData.username?.toLowerCase().includes('seller'));
+          const finalRole = isStaff ? 'admin' : (storedRole || (isSellerUser ? 'seller' : 'buyer'));
           const enrichedUser = { ...profileData, role: finalRole };
           setUser(enrichedUser);
           localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
@@ -39,7 +40,8 @@ export const AuthProvider = ({ children }) => {
     const res = await authService.login({ username, password });
     const { token: newToken, user: userData } = res.data;
     const isStaff = Boolean(userData.is_staff || userData.is_superuser || userData.username === 'admin');
-    const computedRole = isStaff ? 'admin' : (roleHint || 'buyer');
+    const isSellerUser = Boolean(userData.username?.toLowerCase().includes('seller'));
+    const computedRole = isStaff ? 'admin' : (roleHint || (isSellerUser ? 'seller' : 'buyer'));
     const enrichedUser = { ...userData, role: computedRole };
     setToken(newToken);
     setUser(enrichedUser);
@@ -84,8 +86,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const isAdmin = Boolean((user?.is_staff || user?.is_superuser || user?.username === 'admin') && user?.role !== 'buyer');
-  const isSeller = Boolean(user?.role === 'seller');
+  const isAdmin = Boolean((user?.is_staff || user?.is_superuser || user?.username === 'admin') && user?.role !== 'buyer' && user?.role !== 'seller');
+  const isSeller = Boolean(user?.role === 'seller' || user?.username?.toLowerCase().includes('seller'));
   const isBuyer = Boolean(!isAdmin && !isSeller);
   const canManageBooks = Boolean(isAdmin || isSeller);
 

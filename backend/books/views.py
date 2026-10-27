@@ -318,6 +318,135 @@ class OrderViewSet(viewsets.ModelViewSet):
             'recent_orders': serialized_orders,
         }, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get'], url_path='seller-summary', permission_classes=[permissions.AllowAny])
+    def seller_summary(self, request):
+        """
+        Comprehensive portal endpoint for marketplace book sellers:
+        - Returns seller's listed books with stock, condition, and pricing
+        - Returns incoming orders containing the seller's books (buyer name, address, contact, payment status)
+        - Computes revenue, sold units, pending fulfillments, and stock alerts
+        """
+        target_user = request.user if (request.user and request.user.is_authenticated) else None
+        username_param = request.query_params.get('seller_username') or request.query_params.get('username')
+
+        if not target_user and username_param:
+            target_user = User.objects.filter(username__iexact=username_param.strip()).first()
+
+        # If still no user, default to demo seller for testing
+        if not target_user:
+            target_user = User.objects.filter(username='seller_demo').first() or User.objects.filter(username='admin').first()
+
+        seller_books = Book.objects.filter(seller=target_user).order_by('-id') if target_user else Book.objects.none()
+        total_listed = seller_books.count()
+        active_stock = sum((b.stock for b in seller_books), 0)
+        low_stock_count = seller_books.filter(stock__lte=3, stock__gt=0).count()
+        out_of_stock_count = seller_books.filter(stock=0).count()
+
+        # Incoming orders containing this seller's books
+        if target_user:
+            seller_items = OrderItem.objects.filter(book__seller=target_user).select_related('order', 'book').order_by('-id')
+        else:
+            seller_items = OrderItem.objects.none()
+
+        # Group items by order
+        orders_map = {}
+        total_revenue = Decimal('0.00')
+        total_sold_units = 0
+
+        for itm in seller_items:
+            ord_obj = itm.order
+            total_revenue += itm.subtotal
+            total_sold_units += itm.quantity
+
+            if ord_obj.id not in orders_map:
+                orders_map[ord_obj.id] = {
+                    'order_id': ord_obj.id,
+                    'order_number': ord_obj.order_number,
+                    'customer_name': ord_obj.customer_name,
+                    'customer_email': ord_obj.customer_email,
+                    'customer_phone': ord_obj.customer_phone,
+                    'shipping_address': ord_obj.shipping_address,
+                    'payment_method': ord_obj.payment_method,
+                    'payment_status': ord_obj.payment_status,
+                    'transaction_id': ord_obj.transaction_id,
+                    'status': ord_obj.status,
+                    'total_order_amount': str(ord_obj.total_amount),
+                    'created_at': ord_obj.created_at.isoformat(),
+                    'seller_items': [],
+                    'seller_subtotal': Decimal('0.00'),
+                }
+            orders_map[ord_obj.id]['seller_items'].append({
+                'item_id': itm.id,
+                'book_id': itm.book.id if itm.book else None,
+                'title': itm.title,
+                'author': itm.author,
+                'category': itm.category,
+                'unit_price': str(itm.unit_price),
+                'quantity': itm.quantity,
+                'subtotal': str(itm.subtotal),
+            })
+            orders_map[ord_obj.id]['seller_subtotal'] += itm.subtotal
+
+        # Format orders list
+        incoming_orders = []
+        pending_fulfillments = 0
+        for ord_data in orders_map.values():
+            if ord_data['status'] in ['confirmed', 'processing']:
+                pending_fulfillments += 1
+            ord_data['seller_subtotal'] = str(ord_data['seller_subtotal'])
+            incoming_orders.append(ord_data)
+
+        # Serialized seller books (limited to 50 for quick modal view)
+        serialized_books = BookSerializer(seller_books[:50], many=True).data
+
+        return Response({
+            'seller_username': target_user.username if target_user else 'Unknown Seller',
+            'seller_email': target_user.email if target_user else '',
+            'total_listed_books': total_listed,
+            'active_stock': active_stock,
+            'low_stock_count': low_stock_count,
+            'out_of_stock_count': out_of_stock_count,
+            'total_sold_units': total_sold_units,
+            'total_revenue': f"{total_revenue:.2f}",
+            'pending_fulfillments': pending_fulfillments,
+            'incoming_orders': incoming_orders,
+            'catalog_books': serialized_books,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post', 'patch'], url_path='update-status', permission_classes=[permissions.AllowAny])
+    def update_status(self, request, pk=None):
+        """
+        Allows seller or admin to approve / update order status (e.g. processing, shipped, delivered, cancelled)
+        and moderate payment status.
+        """
+        order = self.get_object()
+        new_status = request.data.get('status')
+        new_payment_status = request.data.get('payment_status')
+
+        valid_statuses = [c[0] for c in Order.ORDER_STATUS_CHOICES]
+        if new_status:
+            if new_status not in valid_statuses:
+                return Response(
+                    {"error": f"Invalid order status '{new_status}'. Allowed: {', '.join(valid_statuses)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            order.status = new_status
+
+        valid_pay_statuses = [c[0] for c in Order.PAYMENT_STATUS_CHOICES]
+        if new_payment_status:
+            if new_payment_status not in valid_pay_statuses:
+                return Response(
+                    {"error": f"Invalid payment status '{new_payment_status}'. Allowed: {', '.join(valid_pay_statuses)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            order.payment_status = new_payment_status
+
+        order.save()
+        return Response({
+            "message": f"Order #{order.order_number} status updated to '{order.status}'.",
+            "order": OrderSerializer(order).data
+        }, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=['post'], url_path='process-payment', permission_classes=[permissions.AllowAny])
     def process_payment(self, request):
         """

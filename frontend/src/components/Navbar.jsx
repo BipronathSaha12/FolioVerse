@@ -31,6 +31,7 @@ export const Navbar = ({
   onOpenContact,
   onOpenDashboard,
   onOpenBuyerDashboard,
+  onOpenSellerDashboard,
   onSelectCategory,
   onSelectSubcategory,
   selectedCategory,
@@ -38,7 +39,7 @@ export const Navbar = ({
   apiConnected,
   bookCount,
 }) => {
-  const { user, isAuthenticated, isAdmin, isBuyer, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isBuyer, isSeller, logout } = useAuth();
   const { totalItems, subtotal, openCart } = useCart();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -305,17 +306,22 @@ export const Navbar = ({
               )}
             </div>
 
-            {/* Store / Buyer Dashboard link */}
+            {/* Store / Seller / Buyer Dashboard link */}
             {isAuthenticated && (
               <button
-                onClick={isAdmin ? onOpenDashboard : onOpenBuyerDashboard}
+                onClick={isAdmin ? onOpenDashboard : isSeller ? onOpenSellerDashboard : onOpenBuyerDashboard}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-slate-800 transition-all"
-                title={isAdmin ? "Open Store Admin Dashboard" : "Open Buyer Personal Dashboard"}
+                title={isAdmin ? "Open Store Admin Dashboard" : isSeller ? "Open Seller Operations Portal" : "Open Buyer Personal Dashboard"}
               >
                 {isAdmin ? (
                   <>
                     <Shield className="w-3.5 h-3.5 text-purple-400" />
                     <span>Admin Dashboard</span>
+                  </>
+                ) : isSeller ? (
+                  <>
+                    <Store className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Seller Dashboard</span>
                   </>
                 ) : (
                   <>
@@ -391,19 +397,19 @@ export const Navbar = ({
             {isAuthenticated ? (
               <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
                 <button
-                  onClick={isAdmin ? onOpenDashboard : onOpenBuyerDashboard}
+                  onClick={isAdmin ? onOpenDashboard : isSeller ? onOpenSellerDashboard : onOpenBuyerDashboard}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition-colors"
-                  title={isAdmin ? "Open Store Admin Dashboard" : "Open Buyer Account Portal & Orders"}
+                  title={isAdmin ? "Open Store Admin Dashboard" : isSeller ? "Open Seller Operations Portal" : "Open Buyer Account Portal & Orders"}
                 >
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isAdmin ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                    {isAdmin ? <Shield className="w-3.5 h-3.5" /> : <ShoppingBag className="w-3.5 h-3.5" />}
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isAdmin ? 'bg-purple-500/20 text-purple-400' : isSeller ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                    {isAdmin ? <Shield className="w-3.5 h-3.5" /> : isSeller ? <Store className="w-3.5 h-3.5" /> : <ShoppingBag className="w-3.5 h-3.5" />}
                   </div>
                   <div className="truncate max-w-[110px]">
                     <div className="text-xs font-semibold text-white truncate leading-tight">
                       {user?.username}
                     </div>
-                    <div className={`text-[9px] flex items-center gap-0.5 ${isAdmin ? 'text-purple-400 font-bold' : 'text-emerald-400'}`}>
-                      <CheckCircle2 className="w-2.5 h-2.5" /> {isAdmin ? 'Admin' : 'Buyer'}
+                    <div className={`text-[9px] flex items-center gap-0.5 ${isAdmin ? 'text-purple-400 font-bold' : isSeller ? 'text-amber-400 font-bold' : 'text-emerald-400'}`}>
+                      <CheckCircle2 className="w-2.5 h-2.5" /> {isAdmin ? 'Admin' : isSeller ? 'Seller' : 'Buyer'}
                     </div>
                   </div>
                 </button>
@@ -681,17 +687,18 @@ export const Navbar = ({
                       onClick={() => {
                         setMobileMenuOpen(false);
                         if (isAdmin) onOpenDashboard();
+                        else if (isSeller) onOpenSellerDashboard();
                         else onOpenBuyerDashboard();
                       }}
                       className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-90"
                     >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isAdmin ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                        {isAdmin ? <Shield className="w-4 h-4" /> : <ShoppingBag className="w-4 h-4" />}
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isAdmin ? 'bg-purple-500/20 text-purple-400' : isSeller ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                        {isAdmin ? <Shield className="w-4 h-4" /> : isSeller ? <Store className="w-4 h-4" /> : <ShoppingBag className="w-4 h-4" />}
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-white truncate">{user?.username}</div>
-                        <div className={`text-[10px] flex items-center gap-1 ${isAdmin ? 'text-purple-400 font-bold' : 'text-emerald-400'}`}>
-                          <CheckCircle2 className="w-3 h-3" /> {isAdmin ? 'Store Admin' : 'Buyer Portal'}
+                        <div className={`text-[10px] flex items-center gap-1 ${isAdmin ? 'text-purple-400 font-bold' : isSeller ? 'text-amber-400 font-bold' : 'text-emerald-400'}`}>
+                          <CheckCircle2 className="w-3 h-3" /> {isAdmin ? 'Store Admin' : isSeller ? 'Seller Portal' : 'Buyer Portal'}
                         </div>
                       </div>
                     </button>
