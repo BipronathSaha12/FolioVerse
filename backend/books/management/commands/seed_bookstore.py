@@ -540,8 +540,8 @@ class Command(BaseCommand):
                 stock = random.randint(5, 55)
                 status = 'available'
 
-            # Pricing: $7.50 to $79.99
-            price = round(random.uniform(7.50, 79.99), 2)
+            # Pricing: BDT 185.00 to BDT 1,250.00 (meets >= 180 BDT check constraint)
+            price = round(random.uniform(185.00, 1250.00), 2)
 
             # Publication year between 1910 and 2024
             pub_year = random.randint(1910, 2024)

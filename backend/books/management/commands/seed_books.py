@@ -49,7 +49,7 @@ class Command(BaseCommand):
             {
                 "title": "Harry Potter and the Sorcerer's Stone",
                 "author": "J.K. Rowling",
-                "price": 19.99,
+                "price": 350.00,
                 "published_date": date(1997, 6, 26),
                 "description": "The boy who lived embarks on his first magical adventure at Hogwarts School of Witchcraft and Wizardry.",
                 "cover_image": "https://images.unsplash.com/photo-1618666012174-83b441c0bc76?w=600&auto=format&fit=crop&q=80",
@@ -58,7 +58,7 @@ class Command(BaseCommand):
             {
                 "title": "Harry Potter and the Chamber of Secrets",
                 "author": "J.K. Rowling",
-                "price": 22.50,
+                "price": 380.00,
                 "published_date": date(1998, 7, 2),
                 "description": "Dark secrets and ancient monsters haunt the stone corridors of Hogwarts during Harry's second year.",
                 "cover_image": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&auto=format&fit=crop&q=80",
@@ -67,7 +67,7 @@ class Command(BaseCommand):
             {
                 "title": "Harry Potter and the Prisoner of Azkaban",
                 "author": "J.K. Rowling",
-                "price": 24.99,
+                "price": 420.00,
                 "published_date": date(1999, 7, 8),
                 "description": "Sirius Black escapes Azkaban prison, and terrifying Dementors encircle the castle grounds.",
                 "cover_image": "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&auto=format&fit=crop&q=80",
@@ -76,7 +76,7 @@ class Command(BaseCommand):
             {
                 "title": "1984",
                 "author": "George Orwell",
-                "price": 14.50,
+                "price": 280.00,
                 "published_date": date(1949, 6, 8),
                 "description": "A haunting dystopian classic depicting totalitarian control, omnipresent surveillance, and perpetual war.",
                 "cover_image": "https://images.unsplash.com/photo-1532012164546-f432f2e3777a?w=600&auto=format&fit=crop&q=80",
@@ -85,7 +85,7 @@ class Command(BaseCommand):
             {
                 "title": "The Great Gatsby",
                 "author": "F. Scott Fitzgerald",
-                "price": 12.99,
+                "price": 250.00,
                 "published_date": date(1925, 4, 10),
                 "description": "The tragic and glamorous story of Jay Gatsby and his obsessive pursuit of the American Dream in the Roaring Twenties.",
                 "cover_image": "https://images.unsplash.com/photo-1495640388908-05fa85288e61?w=600&auto=format&fit=crop&q=80",
@@ -94,7 +94,7 @@ class Command(BaseCommand):
             {
                 "title": "The Fellowship of the Ring",
                 "author": "J.R.R. Tolkien",
-                "price": 28.00,
+                "price": 520.00,
                 "published_date": date(1954, 7, 29),
                 "description": "Frodo Baggins inherits the One Ring of Sauron and sets out on an epic quest to destroy it in Mount Doom.",
                 "cover_image": "https://images.unsplash.com/photo-1476275466078-4007374efbbe?w=600&auto=format&fit=crop&q=80",
@@ -103,7 +103,7 @@ class Command(BaseCommand):
             {
                 "title": "To Kill a Mockingbird",
                 "author": "Harper Lee",
-                "price": 15.20,
+                "price": 290.00,
                 "published_date": date(1960, 7, 11),
                 "description": "A profound tale of racial injustice, empathy, and youthful innocence in the American Deep South.",
                 "cover_image": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=600&auto=format&fit=crop&q=80",
@@ -112,7 +112,7 @@ class Command(BaseCommand):
             {
                 "title": "Murder on the Orient Express",
                 "author": "Agatha Christie",
-                "price": 16.75,
+                "price": 310.00,
                 "published_date": date(1934, 1, 1),
                 "description": "Detective Hercule Poirot unravels an ingenious murder on an isolated snowbound luxury train.",
                 "cover_image": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=600&auto=format&fit=crop&q=80",
@@ -121,7 +121,7 @@ class Command(BaseCommand):
             {
                 "title": "Clean Code: A Handbook of Agile Software Craftsmanship",
                 "author": "Robert C. Martin",
-                "price": 42.99,
+                "price": 680.00,
                 "published_date": date(2008, 8, 1),
                 "description": "Essential principles, patterns, and practical exercises for writing readable, maintainable software.",
                 "cover_image": "https://images.unsplash.com/photo-1516259762381-22954d7d3ad2?w=600&auto=format&fit=crop&q=80",
@@ -130,7 +130,7 @@ class Command(BaseCommand):
             {
                 "title": "Design Patterns: Elements of Reusable Object-Oriented Software",
                 "author": "Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides",
-                "price": 49.99,
+                "price": 750.00,
                 "published_date": date(1994, 10, 21),
                 "description": "The seminal Gang of Four reference outlining 23 timeless object-oriented software design patterns.",
                 "cover_image": "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=600&auto=format&fit=crop&q=80",
@@ -139,7 +139,7 @@ class Command(BaseCommand):
             {
                 "title": "Brave New World",
                 "author": "Aldous Huxley",
-                "price": 13.50,
+                "price": 260.00,
                 "published_date": date(1932, 1, 1),
                 "description": "A futuristic World State where citizens are engineered, conditioned, and lulled into passive complacency.",
                 "cover_image": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=600&auto=format&fit=crop&q=80",
@@ -148,7 +148,7 @@ class Command(BaseCommand):
             {
                 "title": "The Hobbit",
                 "author": "J.R.R. Tolkien",
-                "price": 21.00,
+                "price": 380.00,
                 "published_date": date(1937, 9, 21),
                 "description": "Bilbo Baggins is swept into an epic adventure with Gandalf and thirteen dwarves to reclaim the Lonely Mountain.",
                 "cover_image": "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=600&auto=format&fit=crop&q=80",
@@ -157,7 +157,7 @@ class Command(BaseCommand):
             {
                 "title": "The Casual Vacancy",
                 "author": "J.K. Rowling",
-                "price": 18.00,
+                "price": 340.00,
                 "published_date": date(2012, 9, 27),
                 "description": "A darkly comic, thought-provoking tale about the sudden death of a councilor in a quaint English town.",
                 "cover_image": "https://images.unsplash.com/photo-1491841550275-ad7854e35ca6?w=600&auto=format&fit=crop&q=80",
@@ -166,7 +166,7 @@ class Command(BaseCommand):
             {
                 "title": "Pride and Prejudice",
                 "author": "Jane Austen",
-                "price": 11.50,
+                "price": 220.00,
                 "published_date": date(1813, 1, 28),
                 "description": "The timeless romantic drama between the spirited Elizabeth Bennet and proud Mr. Fitzwilliam Darcy.",
                 "cover_image": "https://images.unsplash.com/photo-1463320726281-696a485928c7?w=600&auto=format&fit=crop&q=80",
@@ -175,7 +175,7 @@ class Command(BaseCommand):
             {
                 "title": "Sapiens: A Brief History of Humankind",
                 "author": "Yuval Noah Harari",
-                "price": 27.50,
+                "price": 490.00,
                 "published_date": date(2014, 9, 4),
                 "description": "An exploration of human history from the Stone Age to the present, exploring how biology and history define us.",
                 "cover_image": "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?w=600&auto=format&fit=crop&q=80",
