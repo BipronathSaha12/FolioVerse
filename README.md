@@ -8,7 +8,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Tests Passing](https://img.shields.io/badge/Tests-22%2F22%20Passing-success?style=for-the-badge&logo=pytest&logoColor=white)](https://github.com/BipronathSaha12/FolioVerse)
 
-A full-stack, enterprise-grade Book Store Management System and REST API developed for **Django Batch-9 Module-23 Assignment**. Built with **Django REST Framework (DRF)**, **PostgreSQL**, **React 19**, and **Tailwind CSS**, featuring Role-Based Access Control (RBAC) with dedicated **Store Admin**, **Book Seller**, and **Book Buyer** portals, an interactive **MFS Payment Gateway** (bKash, Nagad, Rocket), and catalog price moderation.
+A full-stack, enterprise-grade Book Store Management System and REST API developed. Built with **Django REST Framework (DRF)**, **PostgreSQL**, **React 19**, and **Tailwind CSS**, featuring Role-Based Access Control (RBAC) with dedicated **Store Admin**, **Book Seller**, and **Book Buyer** portals, an interactive **MFS Payment Gateway** (bKash, Nagad, Rocket), and catalog price moderation.
 
 ---
 
@@ -434,18 +434,3 @@ Explore the dedicated architecture and operational guides in the [`doc/`](file:/
 - **[System Architecture (`doc/system.md`)](file:///f:/Projects/FolioVerse/doc/system.md)**: Decoupled client-server design and database indexing specifications.
 
 ---
-
-## 👨‍💻 Submission Verification Checklist
-
-- [x] Backend built with **Django REST Framework (DRF)**
-- [x] Database powered by **PostgreSQL** with composite indexing
-- [x] Frontend in **React 19** + **Vite 8** + **Tailwind CSS 4**
-- [x] Dedicated **Seller Dashboard** with real-time buyer order observation & approval
-- [x] Role separation: Seller Dashboard omits buyer dashboard and cart lists
-- [x] Inline price moderation (with minimum ৳180 validation) & stock management
-- [x] Approach 3 **Interactive MFS Payment Gateway** (bKash, Nagad, Rocket, COD)
-- [x] Virtual environment verified and tested
-- [x] Git ignore (`.gitignore`) configured
-- [x] Comprehensive `README.md` & `doc/` documentation updated
-- [x] All **22 automated unit and integration tests passing**
-- [x] Postman collection provided and verified
