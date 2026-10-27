@@ -36,11 +36,48 @@ def api_root(request):
     })
 
 
+from django.core.management import call_command
+from books.models import Book
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def seed_database_api(request):
+    """
+    Automated endpoint to seed 2,000 books and demo accounts without requiring a paid Render shell.
+    """
+    try:
+        call_command('create_demo_accounts')
+        current_count = Book.objects.count()
+        if current_count < 2000:
+            call_command('seed_bookstore', target=2000)
+            final_count = Book.objects.count()
+            return Response({
+                "status": "success",
+                "message": f"Successfully seeded {final_count} books and verified all demo accounts!",
+                "books_count": final_count,
+            })
+        return Response({
+            "status": "success",
+            "message": f"Database already contains {current_count} books. Demo accounts verified.",
+            "books_count": current_count,
+        })
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "message": str(e)
+        }, status=500)
+
+
 urlpatterns = [
     # Root health and API overview for direct browser clicks
     path('', api_root, name='root-overview'),
     path('health/', api_root, name='root-health'),
     path('admin/', admin.site.urls),
+
+    # Automated 1-Click Database Seeding (No paid shell needed)
+    path('api/seed-database/', seed_database_api, name='api-seed-database'),
+    path('seed-database/', seed_database_api, name='seed-database'),
 
     # Standard /api/ namespace
     path('api/', api_root, name='api-root'),

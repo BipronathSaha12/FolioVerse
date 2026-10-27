@@ -174,6 +174,23 @@ function FolioVerseContent() {
     setAuthModal({ open: true, mode: 'login', role: 'seller' });
   };
 
+  // Automated Database Seeding (No paid shell needed)
+  const [isSeeding, setIsSeeding] = useState(false);
+  const handleSeedDatabase = async () => {
+    setIsSeeding(true);
+    addToast('Populating 2,000 books and demo accounts into Neon database...', 'info', 'Seeding Started');
+    try {
+      const res = await bookService.seedDatabase();
+      addToast(res.data?.message || 'Successfully seeded 2,000 books!', 'success', 'Catalog Ready');
+      await fetchBooks();
+    } catch (err) {
+      console.error('Failed to seed database:', err);
+      addToast('Failed to seed database. Check your backend status.', 'error', 'Seeding Error');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-cyan-500 selection:text-white">
       {/* Toast Notifications */}
@@ -300,6 +317,8 @@ function FolioVerseContent() {
             isAuthenticated={isAuthenticated}
             onRequireAuth={handleRequireAuth}
             onResetFilters={handleResetFilters}
+            onSeedDatabase={handleSeedDatabase}
+            isSeeding={isSeeding}
           />
 
           {/* Pagination Controls (10 items per page with sliding window for 200+ pages) */}

@@ -65,6 +65,8 @@ export const bookService = {
   getTaxonomy: () => api.get('/books/taxonomy/'),
   // Check API health
   checkHealth: () => api.get('/health/'),
+  // Seed Database (No paid shell needed)
+  seedDatabase: () => api.post('/seed-database/'),
 };
 
 export const orderService = {

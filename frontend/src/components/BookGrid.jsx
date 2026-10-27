@@ -1,6 +1,6 @@
 import React from 'react';
 import { BookCard } from './BookCard';
-import { BookX, RotateCcw } from 'lucide-react';
+import { BookX, RotateCcw, Sparkles } from 'lucide-react';
 
 export const BookGrid = ({
   books,
@@ -12,6 +12,8 @@ export const BookGrid = ({
   isAuthenticated,
   onRequireAuth,
   onResetFilters,
+  onSeedDatabase,
+  isSeeding,
 }) => {
   if (loading) {
     return (
@@ -46,15 +48,30 @@ export const BookGrid = ({
         </div>
         <h3 className="text-xl font-bold text-white">No Books Found in Catalog</h3>
         <p className="text-xs sm:text-sm text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
-          No books matched your active search query, category, or subcategory filter. Try switching genres, checking stock availability, or clearing your filters.
+          No books matched your active search query, category, or subcategory filter, or your cloud database is waiting to be populated.
         </p>
-        <button
-          onClick={onResetFilters}
-          className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 rounded-xl transition-all shadow-lg shadow-cyan-600/20 active:scale-95"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Reset Filters</span>
-        </button>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onResetFilters}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700 active:scale-95"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Reset Filters</span>
+          </button>
+
+          {onSeedDatabase && (
+            <button
+              type="button"
+              onClick={onSeedDatabase}
+              disabled={isSeeding}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+            >
+              <Sparkles className={`w-4 h-4 text-emerald-300 ${isSeeding ? 'animate-spin' : ''}`} />
+              <span>{isSeeding ? 'Populating Catalog...' : 'Seed 2,000 Books (1-Click)'}</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   }
