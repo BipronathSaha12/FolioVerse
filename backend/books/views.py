@@ -10,10 +10,11 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Book, Order, OrderItem, ContactInquiry
+from .models import Book, Order, OrderItem, ContactInquiry, PaymentTransaction
 from .serializers import BookSerializer, OrderSerializer, OrderItemSerializer, ContactInquirySerializer
 from .pagination import BookPagination
 from .filters import BookFilter
+from .payment_gateway import gateway_provider
 
 
 class BookViewSet(viewsets.ModelViewSet):
@@ -360,6 +361,120 @@ class OrderViewSet(viewsets.ModelViewSet):
             "message": f"Payment of ৳{amount} verified and completed via {provider.upper()} API Gateway.",
         }, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['post'], url_path='gateway-initiate', permission_classes=[permissions.AllowAny])
+    def gateway_initiate(self, request):
+        """
+        Initiates a high-fidelity MFS Payment Gateway session for bKash, Nagad, or Rocket.
+        Returns session_id, dynamic QR payload, expiration time, and provider metadata.
+        """
+        order_id = request.data.get('order_id')
+        provider = (request.data.get('provider') or 'bkash').lower()
+        amount = request.data.get('amount')
+        phone = (request.data.get('phone') or '').strip()
+
+        if not order_id:
+            return Response({"error": "order_id is required to initiate gateway session."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            session_data = gateway_provider.initiate(
+                order_id=order_id,
+                provider=provider,
+                amount=amount,
+                customer_phone=phone
+            )
+            return Response(session_data, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Failed to initiate payment session: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='gateway-send-otp', permission_classes=[permissions.AllowAny])
+    def gateway_send_otp(self, request):
+        """
+        Dispatches an authentic 6-digit carrier SMS OTP for the active gateway session.
+        """
+        session_id = request.data.get('session_id')
+        phone = (request.data.get('phone') or '').strip()
+
+        if not session_id:
+            return Response({"error": "session_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not phone:
+            return Response({"error": "Mobile phone number is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = gateway_provider.send_otp(session_id=session_id, phone=phone)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Failed to dispatch OTP: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='gateway-verify-otp', permission_classes=[permissions.AllowAny])
+    def gateway_verify_otp(self, request):
+        """
+        Verifies the 6-digit OTP code against session state and expiration time.
+        """
+        session_id = request.data.get('session_id')
+        otp_code = (request.data.get('otp_code') or '').strip()
+
+        if not session_id or not otp_code:
+            return Response({"error": "session_id and otp_code are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = gateway_provider.verify_otp(session_id=session_id, otp_code=otp_code)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Failed to verify OTP: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='gateway-confirm-pin', permission_classes=[permissions.AllowAny])
+    def gateway_confirm_pin(self, request):
+        """
+        Validates masked MFS PIN, settles payment atomically, and updates Order to PAID.
+        """
+        session_id = request.data.get('session_id')
+        pin = (request.data.get('pin') or '').strip()
+
+        if not session_id or not pin:
+            return Response({"error": "session_id and pin are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = gateway_provider.confirm_pin(session_id=session_id, pin=pin)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Failed to confirm PIN: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='gateway-qr-scan', permission_classes=[permissions.AllowAny])
+    def gateway_qr_scan(self, request):
+        """
+        Simulates dynamic QR scan confirmation directly from the buyer's mobile app.
+        """
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return Response({"error": "session_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = gateway_provider.simulate_qr_scan(session_id=session_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"QR scan confirmation failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='gateway-cancel', permission_classes=[permissions.AllowAny])
+    def gateway_cancel(self, request):
+        """
+        Cancels active gateway session.
+        """
+        session_id = request.data.get('session_id')
+        if session_id:
+            res = gateway_provider.cancel(session_id)
+            return Response(res, status=status.HTTP_200_OK)
+        return Response({"status": "CANCELLED"}, status=status.HTTP_200_OK)
+
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.get('items', [])
@@ -390,9 +505,13 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # For automated API payment, if transaction_id is missing, generate one
-        if payment_method in ['bkash', 'nagad', 'rocket'] and not transaction_id:
-            transaction_id = f"{payment_method.upper()}-TXN-{int(time.time() % 1000000):06d}{random.randint(10, 99)}"
+        # Resolve initial payment status
+        initial_payment_status = (data.get('payment_status') or '').lower()
+        if not initial_payment_status:
+            if payment_method in ['bkash', 'nagad', 'rocket']:
+                initial_payment_status = 'paid' if transaction_id else 'pending'
+            else:
+                initial_payment_status = 'pending'
 
         # Resolve User association reliably
         resolved_user = request.user if (request.user and request.user.is_authenticated) else None
@@ -414,7 +533,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 customer_phone=customer_phone,
                 shipping_address=shipping_address,
                 payment_method=payment_method,
-                payment_status='paid' if payment_method in ['bkash', 'nagad', 'rocket'] else 'pending',
+                payment_status=initial_payment_status,
                 transaction_id=transaction_id,
                 total_amount=Decimal('0.00'),
                 status='confirmed',

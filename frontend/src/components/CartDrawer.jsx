@@ -23,6 +23,7 @@ import {
   Copy,
   BookOpen,
 } from 'lucide-react';
+import { MfsGatewayModal } from './MfsGatewayModal';
 
 export const CartDrawer = ({ onOrderPlaced }) => {
   const {
@@ -66,6 +67,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
   const [errorMsg, setErrorMsg] = useState('');
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [copiedTrx, setCopiedTrx] = useState(false);
+  const [gatewayModal, setGatewayModal] = useState({ open: false, order: null, provider: 'bkash' });
 
   // Sync logged in user details if available
   useEffect(() => {
@@ -123,32 +125,9 @@ export const CartDrawer = ({ onOrderPlaced }) => {
     }
 
     setIsSubmitting(true);
-    let resolvedTransactionId = '';
 
     try {
-      // 1. If mobile banking (bKash, Nagad, Rocket), execute automated API Payment Gateway
-      if (['bkash', 'nagad', 'rocket'].includes(paymentMethod)) {
-        const targetNumber = (mobileNumber || customerPhone || '').trim();
-        if (!targetNumber || targetNumber.length < 11) {
-          setErrorMsg(`Please enter a valid 11-digit Bangladeshi mobile number for ${paymentMethod.toUpperCase()} API payment.`);
-          setIsSubmitting(false);
-          return;
-        }
-
-        setPaymentProcessingStage(`Connecting to ${paymentMethod.toUpperCase()} API Gateway...`);
-
-        // Call backend payment gateway API
-        const payRes = await orderService.processPayment({
-          provider: paymentMethod,
-          account_number: targetNumber,
-          amount: subtotal.toFixed(2),
-        });
-
-        resolvedTransactionId = payRes.data?.transaction_id || `${paymentMethod.toUpperCase()}-TXN-${Date.now().toString(36).toUpperCase()}`;
-        setPaymentProcessingStage(`Payment of ৳${subtotal.toFixed(2)} verified! Finalizing order...`);
-      }
-
-      // 2. Create the Order in Backend Database
+      // 1. Create the Order in Backend Database (Initial pending status)
       const payload = {
         username: user?.username || '',
         customer_name: customerName.trim(),
@@ -156,7 +135,8 @@ export const CartDrawer = ({ onOrderPlaced }) => {
         customer_phone: customerPhone.trim() || mobileNumber.trim(),
         shipping_address: shippingAddress.trim(),
         payment_method: paymentMethod,
-        transaction_id: resolvedTransactionId,
+        payment_status: paymentMethod === 'cod' ? 'pending' : 'pending',
+        transaction_id: '',
         items: cartItems.map((item) => ({
           book_id: item.bookId || item.id,
           quantity: item.quantity,
@@ -166,12 +146,20 @@ export const CartDrawer = ({ onOrderPlaced }) => {
       const res = await orderService.createOrder(payload);
       const placedOrder = res.data;
 
-      // Save to local buyer order history
-      recordOrder(placedOrder);
-      setOrderSuccess(placedOrder);
-      clearCart();
-
-      if (onOrderPlaced) onOrderPlaced(placedOrder);
+      if (paymentMethod === 'cod') {
+        // Cash on Delivery completes directly
+        recordOrder(placedOrder);
+        setOrderSuccess(placedOrder);
+        clearCart();
+        if (onOrderPlaced) onOrderPlaced(placedOrder);
+      } else {
+        // Mobile Banking: Trigger Interactive Gateway Modal
+        setGatewayModal({
+          open: true,
+          order: placedOrder,
+          provider: paymentMethod,
+        });
+      }
     } catch (err) {
       console.error('Order creation failed:', err);
       const serverErr =
@@ -183,6 +171,25 @@ export const CartDrawer = ({ onOrderPlaced }) => {
       setIsSubmitting(false);
       setPaymentProcessingStage('');
     }
+  };
+
+  const handleGatewaySuccess = (paymentResult) => {
+    const finalizedOrder = {
+      ...gatewayModal.order,
+      payment_status: 'paid',
+      transaction_id: paymentResult.transaction_id,
+      paid_at: paymentResult.paid_at,
+    };
+    recordOrder(finalizedOrder);
+    setOrderSuccess(finalizedOrder);
+    clearCart();
+    setGatewayModal({ open: false, order: null, provider: 'bkash' });
+    if (onOrderPlaced) onOrderPlaced(finalizedOrder);
+  };
+
+  const handleGatewayCancel = () => {
+    setGatewayModal({ open: false, order: null, provider: 'bkash' });
+    setErrorMsg('Payment session was cancelled. Your cart items are preserved.');
   };
 
   const handleResetOrder = () => {
@@ -872,7 +879,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                             {paymentMethod.toUpperCase()} Account Number:
                           </span>
                           <span className="text-[11px] text-emerald-400 font-mono font-bold">
-                            API Automated
+                            MFS Gateway
                           </span>
                         </div>
                         <input
@@ -884,7 +891,7 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                           className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-cyan-500 text-white font-mono text-xs outline-none"
                         />
                         <div className="text-[11px] text-slate-400 leading-relaxed">
-                          🔒 Seamless API checkout: An automated payment gateway transaction will complete instantly without manual TrxID typing.
+                          🔒 <strong>Interactive Gateway:</strong> Clicking below will launch the secure {paymentMethod.toUpperCase()} gateway window to scan a dynamic QR code or verify via 6-digit SMS OTP and PIN.
                         </div>
                       </div>
                     )}
@@ -912,14 +919,14 @@ export const CartDrawer = ({ onOrderPlaced }) => {
                       {isSubmitting ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>{paymentProcessingStage || 'Processing Payment...'}</span>
+                          <span>Connecting to Gateway...</span>
                         </>
                       ) : (
                         <>
                           <span>
                             {paymentMethod === 'cod'
                               ? `Place Order via COD • ৳ ${subtotal.toFixed(2)}`
-                              : `Pay with ${paymentMethod.toUpperCase()} API • ৳ ${subtotal.toFixed(2)}`}
+                              : `Proceed to ${paymentMethod.toUpperCase()} Gateway • ৳ ${subtotal.toFixed(2)}`}
                           </span>
                           <ArrowRight className="w-4 h-4" />
                         </>
@@ -941,6 +948,16 @@ export const CartDrawer = ({ onOrderPlaced }) => {
 
         </div>
       </div>
+
+      {/* Interactive MFS Payment Gateway Modal (bKash / Nagad / Rocket) */}
+      <MfsGatewayModal
+        isOpen={gatewayModal.open}
+        onClose={() => setGatewayModal({ open: false, order: null, provider: 'bkash' })}
+        order={gatewayModal.order}
+        provider={gatewayModal.provider}
+        onPaymentSuccess={handleGatewaySuccess}
+        onPaymentCancel={handleGatewayCancel}
+      />
     </div>
   );
 };

@@ -22,7 +22,7 @@ import { ToastContainer } from './components/Toast';
 import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Phone } from 'lucide-react';
 
 function FolioVerseContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const { openCart } = useCart();
 
   // Books state
@@ -341,27 +341,34 @@ function FolioVerseContent() {
         onSuccess={(msg) => addToast(msg, 'success', 'Message Prepared')}
       />
 
-      {/* Store Admin & Seller Dashboard (Mobile Responsive) */}
-      <AdminDashboardModal
-        isOpen={adminDashboardOpen}
-        onClose={() => setAdminDashboardOpen(false)}
-        onOpenAddBook={() => setSellModalOpen(true)}
-        onEditBook={(book) => setBookModal({ open: true, book })}
-        onDeleteBook={(book) => setDeleteModal({ open: true, book })}
-        onRefreshCatalog={fetchBooks}
-        totalBooksCount={totalBooks}
-      />
+      {/* Store Admin Dashboard (Strictly restricted to Admin staff) */}
+      {isAdmin && (
+        <AdminDashboardModal
+          isOpen={adminDashboardOpen}
+          onClose={() => setAdminDashboardOpen(false)}
+          onOpenAddBook={() => setSellModalOpen(true)}
+          onEditBook={(book) => setBookModal({ open: true, book })}
+          onDeleteBook={(book) => setDeleteModal({ open: true, book })}
+          onRefreshCatalog={fetchBooks}
+          totalBooksCount={totalBooks}
+        />
+      )}
 
       {/* Dedicated Buyer Account & Orders Portal */}
       <BuyerDashboardModal
-        isOpen={buyerDashboardOpen}
-        onClose={() => setBuyerDashboardOpen(false)}
+        isOpen={buyerDashboardOpen || (!isAdmin && adminDashboardOpen)}
+        onClose={() => {
+          setBuyerDashboardOpen(false);
+          setAdminDashboardOpen(false);
+        }}
         onOpenCart={() => {
           setBuyerDashboardOpen(false);
+          setAdminDashboardOpen(false);
           openCart();
         }}
         onBrowseCatalog={() => {
           setBuyerDashboardOpen(false);
+          setAdminDashboardOpen(false);
           const catalogEl = document.getElementById('catalog');
           if (catalogEl) catalogEl.scrollIntoView({ behavior: 'smooth' });
         }}

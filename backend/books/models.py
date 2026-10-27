@@ -1,5 +1,7 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class Book(models.Model):
@@ -191,4 +193,60 @@ class ContactInquiry(models.Model):
 
     def __str__(self):
         return f"Inquiry from {self.name} ({self.email}) at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class PaymentTransaction(models.Model):
+    """
+    Manages state machine lifecycle for MFS Payment Gateway (bKash, Nagad, Rocket).
+    Tracks session authorization, SMS OTP generation, expiration, validation attempts,
+    masked security PIN verification, and gateway confirmation.
+    """
+    PROVIDER_CHOICES = [
+        ('bkash', 'bKash'),
+        ('nagad', 'Nagad'),
+        ('rocket', 'Rocket'),
+    ]
+
+    STATUS_CHOICES = [
+        ('INITIATED', 'Session Initiated'),
+        ('OTP_SENT', 'OTP Dispatched'),
+        ('OTP_VERIFIED', 'OTP Verified'),
+        ('PAID', 'Payment Cleared'),
+        ('FAILED', 'Payment Failed'),
+        ('EXPIRED', 'Session Expired'),
+        ('CANCELLED', 'Cancelled by User'),
+    ]
+
+    session_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='transactions')
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, db_index=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    customer_phone = models.CharField(max_length=20, blank=True, default='')
+    otp_code = models.CharField(max_length=10, blank=True, default='')
+    otp_expires_at = models.DateTimeField(null=True, blank=True)
+    otp_attempts = models.PositiveIntegerField(default=0)
+    pin_attempts = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='INITIATED', db_index=True)
+    transaction_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-id']
+        verbose_name = 'Payment Transaction'
+        verbose_name_plural = 'Payment Transactions'
+
+    def is_expired(self):
+        from datetime import timedelta
+        return timezone.now() > self.created_at + timedelta(minutes=10)
+
+    def is_otp_valid(self, entered_otp):
+        if not self.otp_code or not self.otp_expires_at:
+            return False
+        if timezone.now() > self.otp_expires_at:
+            return False
+        return self.otp_code.strip() == str(entered_otp).strip()
+
+    def __str__(self):
+        return f"MFS [{self.provider.upper()}] - Order {self.order.order_number} (৳{self.amount}) - Status: {self.status}"
 

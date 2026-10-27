@@ -17,8 +17,13 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const res = await authService.getProfile();
-          setUser(res.data);
-          localStorage.setItem('folioverse_user', JSON.stringify(res.data));
+          const profileData = res.data;
+          const storedRole = localStorage.getItem('folioverse_role');
+          const isStaff = Boolean(profileData.is_staff || profileData.is_superuser || profileData.username === 'admin');
+          const finalRole = isStaff ? 'admin' : (storedRole || 'buyer');
+          const enrichedUser = { ...profileData, role: finalRole };
+          setUser(enrichedUser);
+          localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
         } catch (err) {
           console.warn('Session expired or invalid token:', err);
           logout();
@@ -33,11 +38,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password, roleHint = null) => {
     const res = await authService.login({ username, password });
     const { token: newToken, user: userData } = res.data;
-    const computedRole = roleHint || (userData.is_staff || userData.is_superuser || userData.username === 'admin' ? 'admin' : userData.username?.includes('seller') ? 'seller' : 'buyer');
+    const isStaff = Boolean(userData.is_staff || userData.is_superuser || userData.username === 'admin');
+    const computedRole = isStaff ? 'admin' : (roleHint || 'buyer');
     const enrichedUser = { ...userData, role: computedRole };
     setToken(newToken);
     setUser(enrichedUser);
     localStorage.setItem('folioverse_token', newToken);
+    localStorage.setItem('folioverse_role', computedRole);
     localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
     return res.data;
   };
@@ -50,10 +57,13 @@ export const AuthProvider = ({ children }) => {
       password_confirm: passwordConfirm,
     });
     const { token: newToken, user: userData } = res.data;
-    const enrichedUser = { ...userData, role: role || 'buyer' };
+    const isStaff = Boolean(userData.is_staff || userData.is_superuser || userData.username === 'admin');
+    const computedRole = isStaff ? 'admin' : (role || 'buyer');
+    const enrichedUser = { ...userData, role: computedRole };
     setToken(newToken);
     setUser(enrichedUser);
     localStorage.setItem('folioverse_token', newToken);
+    localStorage.setItem('folioverse_role', computedRole);
     localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
     return res.data;
   };
@@ -70,11 +80,12 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       localStorage.removeItem('folioverse_token');
       localStorage.removeItem('folioverse_user');
+      localStorage.removeItem('folioverse_role');
     }
   };
 
-  const isAdmin = Boolean(user?.is_staff || user?.is_superuser || user?.username === 'admin' || user?.role === 'admin');
-  const isSeller = Boolean(user?.role === 'seller' || user?.username?.includes('seller'));
+  const isAdmin = Boolean((user?.is_staff || user?.is_superuser || user?.username === 'admin') && user?.role !== 'buyer');
+  const isSeller = Boolean(user?.role === 'seller');
   const isBuyer = Boolean(!isAdmin && !isSeller);
   const canManageBooks = Boolean(isAdmin || isSeller);
 

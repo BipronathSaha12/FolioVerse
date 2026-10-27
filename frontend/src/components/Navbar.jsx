@@ -305,14 +305,24 @@ export const Navbar = ({
               )}
             </div>
 
-            {/* Store Dashboard link (Visible only after sign in / registration) */}
+            {/* Store / Buyer Dashboard link */}
             {isAuthenticated && (
               <button
-                onClick={onOpenDashboard}
+                onClick={isAdmin ? onOpenDashboard : onOpenBuyerDashboard}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-slate-800 transition-all"
+                title={isAdmin ? "Open Store Admin Dashboard" : "Open Buyer Personal Dashboard"}
               >
-                <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Dashboard</span>
+                {isAdmin ? (
+                  <>
+                    <Shield className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Admin Dashboard</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Buyer Dashboard</span>
+                  </>
+                )}
               </button>
             )}
 
