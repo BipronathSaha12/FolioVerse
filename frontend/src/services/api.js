@@ -1,6 +1,10 @@
 import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+ 
+let rawBase = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api').trim();
+// Strip trailing slashes
+rawBase = rawBase.replace(/\/+$/, '');
+// Ensure the base URL correctly points to the /api namespace
+const API_BASE_URL = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -60,7 +64,7 @@ export const bookService = {
   // GET /api/books/taxonomy/
   getTaxonomy: () => api.get('/books/taxonomy/'),
   // Check API health
-  checkHealth: () => api.get('/'),
+  checkHealth: () => api.get('/health/'),
 };
 
 export const orderService = {

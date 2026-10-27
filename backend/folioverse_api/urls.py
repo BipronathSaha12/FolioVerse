@@ -37,8 +37,18 @@ def api_root(request):
 
 
 urlpatterns = [
+    # Root health and API overview for direct browser clicks
+    path('', api_root, name='root-overview'),
+    path('health/', api_root, name='root-health'),
     path('admin/', admin.site.urls),
+
+    # Standard /api/ namespace
     path('api/', api_root, name='api-root'),
+    path('api/health/', api_root, name='api-health'),
     path('api/', include('accounts.urls')),
     path('api/', include('books.urls')),
+
+    # Fallback routes without /api prefix for maximum client resilience
+    path('', include('accounts.urls')),
+    path('', include('books.urls')),
 ]
