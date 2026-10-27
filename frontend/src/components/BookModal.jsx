@@ -261,8 +261,11 @@ export const BookModal = ({ isOpen, onClose, bookToEdit, onSuccess }) => {
           {/* Category & Subcategory Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Category</label>
+              <label htmlFor="book-category-select" className="block text-xs font-semibold text-slate-300 mb-1.5">Category</label>
               <select
+                id="book-category-select"
+                name="category"
+                aria-label="Book Category"
                 value={category}
                 onChange={handleCategoryChange}
                 className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500"
@@ -276,8 +279,11 @@ export const BookModal = ({ isOpen, onClose, bookToEdit, onSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Subcategory</label>
+              <label htmlFor="book-subcategory-select" className="block text-xs font-semibold text-slate-300 mb-1.5">Subcategory</label>
               <select
+                id="book-subcategory-select"
+                name="subcategory"
+                aria-label="Book Subcategory"
                 value={subcategory}
                 onChange={(e) => setSubcategory(e.target.value)}
                 className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500"
@@ -337,8 +343,11 @@ export const BookModal = ({ isOpen, onClose, bookToEdit, onSuccess }) => {
 
             {/* Condition */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Condition</label>
+              <label htmlFor="book-condition-select" className="block text-xs font-semibold text-slate-300 mb-1.5">Condition</label>
               <select
+                id="book-condition-select"
+                name="condition"
+                aria-label="Book Condition"
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
                 className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500"

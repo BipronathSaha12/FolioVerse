@@ -113,7 +113,7 @@ export const Pagination = ({
               return (
                 <span
                   key={`ellipsis-${idx}`}
-                  className="w-7 text-center text-xs text-slate-500 font-bold select-none"
+                  className="w-7 text-center text-xs text-slate-400 font-bold select-none"
                 >
                   •••
                 </span>
@@ -176,8 +176,13 @@ export const Pagination = ({
             onSubmit={handleJumpSubmit}
             className="flex items-center gap-1.5 ml-1 sm:ml-2 pl-2 sm:pl-3 border-l border-slate-800"
           >
-            <span className="text-[11px] text-slate-500 hidden sm:inline">Go to:</span>
+            <label htmlFor="jump-page-input" className="text-[11px] text-slate-300 font-medium hidden sm:inline cursor-pointer">
+              Go to:
+            </label>
             <input
+              id="jump-page-input"
+              name="jumpPage"
+              aria-label="Go to page number"
               type="number"
               min="1"
               max={totalPages}

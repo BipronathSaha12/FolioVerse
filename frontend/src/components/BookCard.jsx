@@ -150,7 +150,7 @@ export const BookCard = ({
 
           <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
             <span className="truncate">Pub: {formattedDate}</span>
-            <span className="text-[10px] text-slate-500 font-mono">ID: #{book.id}</span>
+            <span className="text-[10px] text-slate-300 font-mono font-medium">ID: #{book.id}</span>
           </div>
 
           {/* Stock & Availability Indicator */}

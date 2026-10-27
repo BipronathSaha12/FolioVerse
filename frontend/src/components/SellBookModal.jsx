@@ -184,10 +184,13 @@ export const SellBookModal = ({ isOpen, onClose, onSuccess }) => {
           {/* Category & Subcategory Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label htmlFor="sell-book-category" className="block text-xs font-semibold text-slate-300 mb-1">
                 Primary Genre / Category <span className="text-rose-400">*</span>
               </label>
               <select
+                id="sell-book-category"
+                name="category"
+                aria-label="Primary Genre or Category"
                 value={formData.category}
                 onChange={handleCategoryChange}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
@@ -201,10 +204,13 @@ export const SellBookModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label htmlFor="sell-book-subcategory" className="block text-xs font-semibold text-slate-300 mb-1">
                 Subcategory <span className="text-rose-400">*</span>
               </label>
               <select
+                id="sell-book-subcategory"
+                name="subcategory"
+                aria-label="Subcategory"
                 value={formData.subcategory}
                 onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
@@ -221,8 +227,11 @@ export const SellBookModal = ({ isOpen, onClose, onSuccess }) => {
           {/* Language, Condition, Stock, Price */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Language</label>
+              <label htmlFor="sell-book-language" className="block text-xs font-semibold text-slate-300 mb-1">Language</label>
               <select
+                id="sell-book-language"
+                name="language"
+                aria-label="Book Language"
                 value={formData.language}
                 onChange={(e) => setFormData({ ...formData, language: e.target.value })}
                 className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs"
@@ -234,8 +243,11 @@ export const SellBookModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Condition</label>
+              <label htmlFor="sell-book-condition" className="block text-xs font-semibold text-slate-300 mb-1">Condition</label>
               <select
+                id="sell-book-condition"
+                name="condition"
+                aria-label="Book Condition"
                 value={formData.condition}
                 onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
                 className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs"
@@ -311,7 +323,7 @@ export const SellBookModal = ({ isOpen, onClose, onSuccess }) => {
               className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs mb-2"
             />
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">Preset suggestions:</span>
+              <span className="text-[11px] text-slate-300">Preset suggestions:</span>
               {sampleCovers.map((url, i) => (
                 <button
                   key={i}

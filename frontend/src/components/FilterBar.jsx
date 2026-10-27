@@ -213,7 +213,14 @@ export const FilterBar = ({
 
         {/* Order By Select */}
         <div className="sm:col-span-1 lg:col-span-2 relative">
+          <label htmlFor="book-ordering-select" className="sr-only">
+            Sort and order books
+          </label>
           <select
+            id="book-ordering-select"
+            name="ordering"
+            aria-label="Sort and order books"
+            title="Sort and order books"
             value={ordering}
             onChange={(e) => onOrderingChange(e.target.value)}
             className="w-full pl-3 pr-8 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all appearance-none cursor-pointer"

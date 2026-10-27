@@ -475,7 +475,7 @@ function FolioVerseContent() {
                   <Phone className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Call Us</span>
+                  <span className="text-[10px] text-slate-300 block uppercase font-semibold tracking-wider">Call Us</span>
                   <span className="font-mono text-slate-200 font-semibold text-xs sm:text-sm">+8801559503222</span>
                 </div>
               </a>
@@ -490,14 +490,14 @@ function FolioVerseContent() {
                   <Mail className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Email</span>
+                  <span className="text-[10px] text-slate-300 block uppercase font-semibold tracking-wider">Email</span>
                   <span className="font-mono text-slate-200 font-semibold text-xs sm:text-sm">contact@folioverse.com</span>
                 </div>
               </a>
             </div>
           </div>
 
-          <div className="pt-5 border-t border-slate-900/90 flex items-center justify-center text-[11px] text-slate-500 text-center">
+          <div className="pt-5 border-t border-slate-900/90 flex items-center justify-center text-[11px] text-slate-400 text-center">
             <p>© {new Date().getFullYear()} FolioVerse Book Store. All rights reserved.</p>
           </div>
         </div>

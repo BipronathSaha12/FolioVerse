@@ -491,25 +491,25 @@ export function SellerDashboardModal({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800/60">
                           {/* Buyer Info */}
                           <div className="space-y-1.5">
-                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 block">
+                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">
                               Customer Information
                             </span>
                             <div className="font-bold text-white text-sm flex items-center gap-1.5">
                               <span>{ord.customer_name}</span>
                             </div>
-                            <div className="text-slate-400 flex items-center gap-1.5">
-                              <Mail className="w-3.5 h-3.5 text-slate-500" />
+                            <div className="text-slate-300 flex items-center gap-1.5">
+                              <Mail className="w-3.5 h-3.5 text-slate-400" />
                               <span>{ord.customer_email}</span>
                             </div>
-                            <div className="text-slate-400 flex items-center gap-1.5">
-                              <Phone className="w-3.5 h-3.5 text-slate-500" />
+                            <div className="text-slate-300 flex items-center gap-1.5">
+                              <Phone className="w-3.5 h-3.5 text-slate-400" />
                               <span className="font-mono">{ord.customer_phone || 'N/A'}</span>
                             </div>
                           </div>
 
                           {/* Shipping Address */}
                           <div className="space-y-1.5">
-                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 block">
+                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">
                               Delivery Destination
                             </span>
                             <div className="text-slate-300 flex items-start gap-1.5 leading-relaxed">
@@ -526,7 +526,7 @@ export function SellerDashboardModal({
 
                         {/* Ordered Books by this Seller */}
                         <div className="space-y-2">
-                          <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 block">
+                          <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">
                             Your Books Ordered ({ord.seller_items?.length} title(s))
                           </span>
                           <div className="space-y-2">
@@ -679,7 +679,7 @@ export function SellerDashboardModal({
                               <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 text-[10px] font-bold border border-amber-500/20">
                                 {book.category}
                               </span>
-                              <span className="text-[10px] text-slate-500">
+                              <span className="text-[10px] text-slate-400">
                                 {book.condition || 'New'} • {book.language || 'English'}
                               </span>
                             </div>
@@ -821,7 +821,7 @@ export function SellerDashboardModal({
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-950 px-6 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
+        <div className="bg-slate-950 px-6 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>FolioVerse Verified Marketplace • Instant Order Approval Engine</span>
