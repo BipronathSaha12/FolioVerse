@@ -344,7 +344,7 @@ export const BuyerDashboardModal = ({
               <span className="font-medium">Cart & Saved Items</span>
               <Bookmark className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-xl sm:text-2xl font-black text-amber-400">
+            <div className="text-xl sm:text-2xl font-black text-amber-300">
               {cartItems.length}{' '}
               <span className="text-xs font-semibold text-slate-400">active</span>
               {' • '}

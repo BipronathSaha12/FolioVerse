@@ -168,8 +168,8 @@ export const BookDetailModal = ({
                       <span>Available ({book.stock} copies in store)</span>
                     </span>
                   ) : book.stock > 0 ? (
-                    <span className="flex items-center gap-1.5 text-amber-400 animate-pulse">
-                      <AlertTriangle className="w-4 h-4" />
+                    <span className="flex items-center gap-1.5 text-amber-300 font-bold">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
                       <span>Low Stock: Only {book.stock} copy(ies) remaining!</span>
                     </span>
                   ) : (

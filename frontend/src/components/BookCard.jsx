@@ -161,8 +161,8 @@ export const BookCard = ({
                 <span>In Stock ({book.stock})</span>
               </span>
             ) : book.stock > 0 ? (
-              <span className="flex items-center gap-1 text-amber-400 animate-pulse">
-                <AlertTriangle className="w-3.5 h-3.5" />
+              <span className="flex items-center gap-1 text-amber-300 font-bold">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
                 <span>Only {book.stock} left!</span>
               </span>
             ) : (
