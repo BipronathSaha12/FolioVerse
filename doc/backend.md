@@ -194,23 +194,42 @@ Generates and bulk-inserts 2,000 production-ready books across all 5 genres:
 ### 6.2 REST Endpoints
 - `POST /api/orders/`: Concurrency-safe atomic checkout across multiple items in cart. Locks books via `select_for_update()`, verifies stock, decrements inventory, and saves order.
 - `GET /api/orders/`: Lists live orders with items and payment statuses for Store Admin Dashboard.
-- `GET /api/orders/<id>/`: Detail view of single order.
+- `GET /api/orders/<id>/`: Detail view of single order with receipt.
+- `GET /api/orders/my-orders/`: Returns personal order history for authenticated buyer.
+- `GET /api/orders/seller-summary/`: Seller-specific aggregator returning total listed books, active stock count, low/out-of-stock counts, total sold units, sales revenue, and incoming orders containing the seller's books with buyer info and payment clearance status.
+- `POST /api/orders/<id>/update-status/`: Seller and Admin action to transition order fulfillment (`confirmed` -> `processing` -> `shipped` -> `delivered`).
 
 ---
 
 ## 7. Automated Verification & Test Suite
 
-The test suite in `backend/books/tests.py` verifies all requirements with **17 automated test cases**:
+The test suite across `backend/books/tests.py` and `backend/accounts/tests.py` verifies all requirements with **22 automated test cases**:
 ```bash
-python manage.py test books
+python manage.py test books accounts
 ```
 Output:
-```
+```text
 Creating test database for alias 'default'...
-.................
-Ran 17 tests in 45.014s
+......................
+----------------------------------------------------------------------
+Ran 22 tests in 45.010s
 
 OK
 Destroying test database for alias 'default'...
+Found 22 test(s).
+System check identified no issues (0 silenced).
 ```
-Tested behaviors include 10-item pagination, page 2 navigation, taxonomy endpoints, Bengali & English literature filtering, in-stock filtering, atomic single buy, multi-item cart order with Stripe payment, multi-item cart order with bKash mobile banking, multi-item cart order with Cash on Delivery (COD), inventory decrement, over-purchase stock rejection, unauthenticated rejection on write, authenticated creation, single item retrieval, PUT/PATCH updates, and price ordering.
+Tested behaviors include:
+1. User registration, password confirmation matching, token generation.
+2. User authentication, invalid credentials rejection, token invalidation on logout.
+3. 10-item pagination, page navigation, catalog volume validation.
+4. Taxonomy endpoints and genre count aggregations.
+5. Bengali & English literature filtering and subcategory searches.
+6. Seller query filtering (`?seller=me`, `?seller=<username>`).
+7. In-stock inventory filtering.
+8. Atomic single-item buy with row lock (`select_for_update`).
+9. Multi-item cart checkout with Credit Card (Stripe), bKash mobile banking, and Cash on Delivery (COD).
+10. Inventory decrement and automatic status recalculation (`available` -> `low_stock` -> `sold`).
+11. Over-purchase stock rejection.
+12. Unauthenticated write rejection (HTTP 401).
+13. Authenticated creation, single-item retrieval, PUT/PATCH updates, and price ordering.

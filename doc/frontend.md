@@ -17,6 +17,9 @@ frontend/src/
 │       └── folioverse_logo.jpg       # High-resolution official brand logo
 ├── components/
 │   ├── AdminDashboardModal.jsx       # Mobile-responsive store admin & inventory dashboard with live order tracking
+│   ├── BuyerDashboardModal.jsx       # Dedicated buyer account & order history tracking portal
+│   ├── SellerDashboardModal.jsx      # Dedicated seller operations portal (order fulfillment & catalog moderation)
+│   ├── PaymentGatewayModal.jsx       # Interactive MFS payment gateway modal (Approach 3: QR, OTP, PIN)
 │   ├── AuthModal.jsx                 # Role onboarding (Buyer vs Seller) & 1-click demo logins
 │   ├── BookCard.jsx                  # Golden 3:4 portrait aspect ratio book card with Add to Cart & Buy
 │   ├── BookDetailModal.jsx           # Detailed book viewer with instant buy action
@@ -28,7 +31,7 @@ frontend/src/
 │   ├── DeleteConfirmModal.jsx        # Deletion confirmation modal
 │   ├── FilterBar.jsx                 # Horizontal category tabs & subcategory pills
 │   ├── HeroSection.jsx               # Digital bookstore hero, role CTAs, and live stats
-│   ├── Navbar.jsx                    # Decongested desktop header & mobile responsive drawer with Cart pill
+│   ├── Navbar.jsx                    # Responsive header with Seller/Admin/Buyer pills & Cart badge
 │   ├── Pagination.jsx                # Sliding window pagination with ellipsis (for 200 pages)
 │   └── Toast.jsx                     # Non-intrusive floating alert notifications
 ├── context/
@@ -82,25 +85,50 @@ frontend/src/
   3. *Dual Literature:* বাংলা & English Classics.
   4. *Availability:* Live Stock Check with atomic checkout.
 
-### 2.3 `AdminDashboardModal.jsx` (Mobile-Responsive Dashboard)
-- **Tab 1: Overview & Metrics:** High-level inventory health cards and genre distribution progress bars.
-- **Tab 2: Inventory Management:** Searchable list of books with quick stock adjustment (`+5 Restock`), Edit, and Delete controls. Renders compact touch-friendly cards on mobile devices without overflowing.
-- **Tab 3: Orders & Transactions:** Feed of recently completed buyer transactions.
+### 2.3 `SellerDashboardModal.jsx` (Dedicated Seller Operations & Fulfillment Portal)
+- Exclusively loaded for verified sellers (`isSeller: true`). Hides buyer views and removes cart clutter.
+- **Top KPI Cards**: Sales Revenue, Units Sold, Orders Needing Action, and Active Listings.
+- **Tab 1: Incoming Orders & Fulfillment**:
+  - Displays customer name, phone number, email, and shipping address.
+  - Lists specific books ordered, unit pricing, quantities, and line totals.
+  - Shows payment verification badges (`bKash Paid`, `Nagad Paid`, `Rocket Paid`, `Card Paid`, `Cash on Delivery`).
+  - Action buttons to advance fulfillment: *"Approve & Prepare Shipment"* (`confirmed` -> `processing`), *"Dispatch with Courier"* (`processing` -> `shipped`), *"Confirm Delivery"* (`shipped` -> `delivered`).
+- **Tab 2: Catalog Management & Moderation**:
+  - Searchable list of seller's books.
+  - **Inline Price Editor**: Edit book prices with validation (minimum ৳180.00 floor).
+  - **Stock Increment/Decrement**: Fast restock controls with live status badges.
+  - Delisting and editing buttons.
 
-### 2.4 `ContactModal.jsx` (Email Redirection to `bipronathsaha@gmail.com`)
+### 2.4 `PaymentGatewayModal.jsx` (Interactive MFS Payment Gateway — Approach 3)
+- Multi-provider interactive sandbox modal supporting **bKash**, **Nagad**, and **Rocket**.
+- Step 1: Provider selection & merchant details with live dynamic QR code generator and 1-click scanner.
+- Step 2: Customer mobile number input & automated 6-digit SMS OTP generator with auto-fill simulation.
+- Step 3: Masked 4-digit PIN pad with visibility toggle and security notices.
+- Triggers atomic backend checkout upon valid PIN entry and displays confirmed order receipt.
+
+### 2.5 `BuyerDashboardModal.jsx` (Dedicated Buyer Account & Orders Portal)
+- Dedicated portal strictly for book buyers (`isBuyer: true`).
+- Displays personal purchase history, order numbers, delivery tracking states, and downloadable invoice details.
+
+### 2.6 `AdminDashboardModal.jsx` (Storewide Admin Dashboard)
+- **Tab 1: Overview & Metrics:** High-level inventory health cards and genre distribution progress bars.
+- **Tab 2: Inventory Management:** Searchable list of books with quick stock adjustment (`+5 Restock`), Edit, and Delete controls.
+- **Tab 3: Orders & Transactions:** Storewide order feed with buyer details and payment status.
+
+### 2.7 `ContactModal.jsx` (Email Redirection to `bipronathsaha@gmail.com`)
 - Accessible from both the navigation bar and footer.
 - Displays target recipient: `bipronathsaha@gmail.com`.
 - Fields: Recipient's Name, Email, Contact (Phone), and Message box.
 - Encodes details into an RFC 2368 `mailto:` link, redirects via `window.location.href`, and displays an in-app confirmation screen with copy and re-open options.
 
-### 2.5 `AuthModal.jsx` (Role Selection & 1-Click Demo Logins)
+### 2.8 `AuthModal.jsx` (Role Selection & 1-Click Demo Logins)
 - **Role Selection Cards:** Toggle between **Book Buyer** and **Book Seller** prior to account creation.
 - **1-Click Demo Accounts:**
   - `Admin`: `admin / admin12345` (Superuser & staff dashboard access).
   - `Buyer Demo`: `buyer_demo / buyer12345` (Book buyer persona).
   - `Seller Demo`: `seller_demo / seller12345` (Book seller persona).
 
-### 2.6 `Pagination.jsx` (Sliding Window for 200+ Pages)
+### 2.9 `Pagination.jsx` (Sliding Window for 200+ Pages)
 - For 2,000 books at 10 items per page, `totalPages = 200`.
 - Implements an intelligent sliding window: `[1, 2, ..., currentPage - 1, currentPage, currentPage + 1, ..., 199, 200]`.
 - Features First (`<<`), Previous (`<`), Next (`>`), and Last (`>>`) controls.
