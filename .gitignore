@@ -32,9 +32,18 @@ backend/env/
 
 # Environment Variables & Secrets
 .env
-.env.local
-.env.*.local
+.env.*
 *.env
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+*.pem
+*.key
+*.cert
+!*.env.example
+!.env.example
+!backend/.env.example
 
 # Django database & media (PostgreSQL is used, but exclude SQLite and media if created)
 *.sqlite3

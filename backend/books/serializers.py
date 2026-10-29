@@ -1,10 +1,41 @@
+import re
+from urllib.parse import urlparse
+from django.utils.html import escape
 from rest_framework import serializers
 from .models import Book
 
 
+def sanitize_text(text: str) -> str:
+    """
+    Sanitizes user input to prevent Stored Cross-Site Scripting (XSS).
+    Strips leading/trailing whitespace and escapes dangerous HTML characters.
+    """
+    if not text:
+        return ''
+    return escape(str(text).strip())
+
+
+def validate_safe_url(url: str) -> str:
+    """
+    Validates URL scheme to prevent javascript: pseudo-protocol and internal SSRF vectors.
+    """
+    if not url or not str(url).strip():
+        return ''
+    cleaned = str(url).strip()
+    parsed = urlparse(cleaned)
+    if parsed.scheme.lower() not in ('http', 'https'):
+        raise serializers.ValidationError("Cover image URL must use http or https protocol.")
+    
+    # Reject private IP and loopback SSRF targets
+    hostname = (parsed.hostname or '').lower()
+    if hostname in ('localhost', '127.0.0.1', '0.0.0.0', '169.254.169.254', '::1'):
+        raise serializers.ValidationError("Internal and loopback URLs are not permitted.")
+    return cleaned
+
+
 class BookSerializer(serializers.ModelSerializer):
     """
-    Serializer for the Book model with input validation for marketplace buy/sell operations.
+    Serializer for the Book model with strict ownership lockdown and input sanitization.
     """
     seller_username = serializers.ReadOnlyField(source='seller.username')
 
@@ -30,7 +61,15 @@ class BookSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'status', 'created_at', 'updated_at', 'seller_username']
+        # Prevent Mass-Assignment of seller, status, and system timestamps
+        read_only_fields = [
+            'id',
+            'seller',
+            'seller_username',
+            'status',
+            'created_at',
+            'updated_at',
+        ]
 
     def validate_price(self, value):
         if value < 180:
@@ -45,12 +84,18 @@ class BookSerializer(serializers.ModelSerializer):
     def validate_title(self, value):
         if not value or not value.strip():
             raise serializers.ValidationError("Title cannot be empty.")
-        return value.strip()
+        return sanitize_text(value)
 
     def validate_author(self, value):
         if not value or not value.strip():
             raise serializers.ValidationError("Author cannot be empty.")
-        return value.strip()
+        return sanitize_text(value)
+
+    def validate_description(self, value):
+        return sanitize_text(value)
+
+    def validate_cover_image(self, value):
+        return validate_safe_url(value)
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -83,7 +128,25 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'order_number', 'total_amount', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id',
+            'order_number',
+            'payment_status',
+            'transaction_id',
+            'status',
+            'total_amount',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate_customer_name(self, value):
+        return sanitize_text(value)
+
+    def validate_customer_phone(self, value):
+        return sanitize_text(value)
+
+    def validate_shipping_address(self, value):
+        return sanitize_text(value)
 
 
 class ContactInquirySerializer(serializers.ModelSerializer):
@@ -102,3 +165,11 @@ class ContactInquirySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'recipient_email', 'created_at', 'is_resolved']
 
+    def validate_name(self, value):
+        return sanitize_text(value)
+
+    def validate_contact(self, value):
+        return sanitize_text(value)
+
+    def validate_message(self, value):
+        return sanitize_text(value)

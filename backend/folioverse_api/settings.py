@@ -10,10 +10,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-folioverse-secret-key-drf-postgres-2026')
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '*').split(',') if host.strip()]
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-folioverse-dev-key-change-in-production'
+    else:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("SECRET_KEY environment variable is mandatory when DEBUG=False.")
+
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '').strip()
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+else:
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
+
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -41,6 +53,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # Top-level for CORS handling
     'django.middleware.security.SecurityMiddleware',
+    'folioverse_api.middleware.SecurityHeadersMiddleware',  # Enforce CSP, HSTS, and frame protections
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -147,24 +160,73 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    # Throttling (Assignment requirement: Anon 20/min, Auth 50/min)
+    # Throttling
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/minute',
-        'user': '50/minute',
+        'anon': '30/minute',
+        'user': '60/minute',
+        'auth_anon': '10/minute',
+        'auth_login': '5/minute',
+        'auth_login_composite': '5/minute',
+        'contact_burst': '5/minute',
     },
 }
 
-# CORS & CSRF settings for React frontend
-CORS_ALLOW_ALL_ORIGINS = True
+# -----------------------------------------------------------------------------
+# Layer 1: Network, Transport & Edge Security
+# -----------------------------------------------------------------------------
+# CORS Hardening - Strict Origins Only (No Wildcard with Credentials)
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
+
+cors_allowed_env = os.getenv('CORS_ALLOWED_ORIGINS', '').strip()
+if cors_allowed_env:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_allowed_env.split(',') if origin.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+    ]
+
+# Support trusted preview deployment regexes for Vercel and Render
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https:\/\/.*\.vercel\.app$",
+    r"^https:\/\/.*\.onrender\.com$",
+]
 
 CSRF_TRUSTED_ORIGINS = [
     'https://*.vercel.app',
     'https://*.onrender.com',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
 ]
+
+# Transport, Session, and Cookie Hardening
+if not DEBUG:
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() in ('true', '1', 't')
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', 31536000))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False  # Allows standard frontend frameworks to read CSRF token
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 1800  # 30-minute session inactivity expiry
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'

@@ -15,6 +15,7 @@ from .serializers import BookSerializer, OrderSerializer, OrderItemSerializer, C
 from .pagination import BookPagination
 from .filters import BookFilter
 from .payment_gateway import gateway_provider
+from .permissions import IsOwnerOrReadOnly, IsOrderParticipantOrAdmin, IsContactManagerOrSubmitOnly
 
 
 class BookViewSet(viewsets.ModelViewSet):
@@ -23,15 +24,15 @@ class BookViewSet(viewsets.ModelViewSet):
     - GET /api/books/                (List all books, paginated 10/page)
     - POST /api/books/               (List/Sell a new book - Authenticated or seller)
     - GET /api/books/<id>/           (Retrieve single book by ID)
-    - PUT /api/books/<id>/           (Update book details)
-    - PATCH /api/books/<id>/         (Partial update)
-    - DELETE /api/books/<id>/        (Delete a book)
+    - PUT /api/books/<id>/           (Update book details - Owner/Seller or Admin only)
+    - PATCH /api/books/<id>/         (Partial update - Owner/Seller or Admin only)
+    - DELETE /api/books/<id>/        (Delete a book - Owner/Seller or Admin only)
     - POST /api/books/<id>/buy/      (Transaction-safe atomic purchase with inventory decrement)
     - GET /api/books/taxonomy/       (Hierarchical categories & subcategories overview)
     """
     queryset = Book.objects.all().select_related('seller')
     serializer_class = BookSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [IsOwnerOrReadOnly]
     pagination_class = BookPagination
 
     # Filter backends
@@ -172,57 +173,60 @@ class OrderViewSet(viewsets.ModelViewSet):
     - POST /api/orders/process-payment/ (Automated API Payment Gateway for bKash, Nagad & Rocket)
     """
     serializer_class = OrderSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsOrderParticipantOrAdmin]
     ordering = ['-id']
 
     def get_queryset(self):
-        qs = Order.objects.all().prefetch_related('items')
-        
-        # Check query parameter for customer_email or customer_username
-        email = self.request.query_params.get('customer_email') or self.request.query_params.get('email')
-        username = self.request.query_params.get('customer_username') or self.request.query_params.get('username')
-        
-        if email:
-            qs = qs.filter(customer_email__iexact=email.strip())
-        elif username:
-            qs = qs.filter(Q(user__username__iexact=username.strip()) | Q(customer_name__iexact=username.strip()))
-
-        # If user is authenticated and not staff, strictly scope to their user id or email
         user = self.request.user
-        if user and user.is_authenticated and not (user.is_staff or user.is_superuser):
-            qs = qs.filter(Q(user=user) | Q(customer_email__iexact=user.email))
+        if not user or not user.is_authenticated:
+            # Zero-Trust: Anonymous callers cannot query order listings or details
+            return Order.objects.none()
 
-        return qs.order_by('-id')
+        qs = Order.objects.all().prefetch_related('items')
 
-    @action(detail=False, methods=['get'], url_path='buyer-summary', permission_classes=[permissions.AllowAny])
+        # Admin and staff can inspect all store orders or filter by query parameters
+        if user.is_staff or user.is_superuser:
+            email = self.request.query_params.get('customer_email') or self.request.query_params.get('email')
+            username = self.request.query_params.get('customer_username') or self.request.query_params.get('username')
+            if email:
+                qs = qs.filter(customer_email__iexact=email.strip())
+            elif username:
+                qs = qs.filter(Q(user__username__iexact=username.strip()) | Q(customer_name__iexact=username.strip()))
+            return qs.order_by('-id')
+
+        # Regular authenticated users: strictly scope to orders they purchased or items they sell
+        return qs.filter(
+            Q(user=user) |
+            Q(customer_email__iexact=user.email) |
+            Q(items__book__seller=user)
+        ).distinct().order_by('-id')
+
+    @action(detail=False, methods=['get'], url_path='buyer-summary', permission_classes=[permissions.IsAuthenticated])
     def buyer_summary(self, request):
         """
         Dynamic analytics endpoint for the Buyer Dashboard:
-        - Resolves the specific buyer (authenticated user, or via ?username= / ?customer_email=)
-        - Computes:
-          1. Total orders count & total amount spent in BDT
-          2. Total books ordered breakdown by category (e.g. Science, Fiction, Literature, Technology, Music)
-          3. Total cleared payments breakdown by payment method (bKash, Nagad, Rocket, COD)
-          4. Categorized cleared books (what category/type of books cleared payment)
-          5. Recent order list with item details, categories, and payment confirmation
+        - Resolves buyer safely: regular users can only see their own summary.
+        - Staff can view other accounts via ?username= or ?email=.
         """
-        target_user = request.user if (request.user and request.user.is_authenticated) else None
+        is_admin_user = bool(request.user.is_staff or request.user.is_superuser)
         username_param = request.query_params.get('username') or request.query_params.get('customer_username')
         email_param = request.query_params.get('email') or request.query_params.get('customer_email')
 
-        if not target_user and username_param:
-            target_user = User.objects.filter(username__iexact=username_param.strip()).first()
+        if is_admin_user and (username_param or email_param):
+            if username_param:
+                target_user = User.objects.filter(username__iexact=username_param.strip()).first()
+            else:
+                target_user = User.objects.filter(email__iexact=email_param.strip()).first()
+        else:
+            target_user = request.user
+            username_param = None
+            email_param = None
 
         orders_qs = Order.objects.all().prefetch_related('items')
-        if target_user and not (target_user.is_staff or target_user.is_superuser):
+        if target_user:
             orders_qs = orders_qs.filter(Q(user=target_user) | Q(customer_email__iexact=target_user.email))
-        elif email_param:
-            orders_qs = orders_qs.filter(customer_email__iexact=email_param.strip())
-        elif username_param:
-            orders_qs = orders_qs.filter(Q(user__username__iexact=username_param.strip()) | Q(customer_name__iexact=username_param.strip()))
-        elif target_user and (target_user.is_staff or target_user.is_superuser):
-            if not username_param and not email_param:
-                orders_qs = orders_qs.filter(user=target_user)
+        else:
+            orders_qs = Order.objects.none()
 
         total_orders = orders_qs.count()
         total_spent = sum((o.total_amount for o in orders_qs), Decimal('0.00'))
@@ -318,23 +322,20 @@ class OrderViewSet(viewsets.ModelViewSet):
             'recent_orders': serialized_orders,
         }, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['get'], url_path='seller-summary', permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=['get'], url_path='seller-summary', permission_classes=[permissions.IsAuthenticated])
     def seller_summary(self, request):
         """
         Comprehensive portal endpoint for marketplace book sellers:
-        - Returns seller's listed books with stock, condition, and pricing
-        - Returns incoming orders containing the seller's books (buyer name, address, contact, payment status)
-        - Computes revenue, sold units, pending fulfillments, and stock alerts
+        - Authenticated seller can only access their own dashboard.
+        - Staff can view other sellers via ?seller_username= or ?username=.
         """
-        target_user = request.user if (request.user and request.user.is_authenticated) else None
+        is_admin_user = bool(request.user.is_staff or request.user.is_superuser)
         username_param = request.query_params.get('seller_username') or request.query_params.get('username')
 
-        if not target_user and username_param:
-            target_user = User.objects.filter(username__iexact=username_param.strip()).first()
-
-        # If still no user, default to demo seller for testing
-        if not target_user:
-            target_user = User.objects.filter(username='seller_demo').first() or User.objects.filter(username='admin').first()
+        if is_admin_user and username_param:
+            target_user = User.objects.filter(username__iexact=username_param.strip()).first() or request.user
+        else:
+            target_user = request.user
 
         seller_books = Book.objects.filter(seller=target_user).order_by('-id') if target_user else Book.objects.none()
         total_listed = seller_books.count()
@@ -413,13 +414,23 @@ class OrderViewSet(viewsets.ModelViewSet):
             'catalog_books': serialized_books,
         }, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['post', 'patch'], url_path='update-status', permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['post', 'patch'], url_path='update-status', permission_classes=[permissions.IsAuthenticated])
     def update_status(self, request, pk=None):
         """
         Allows seller or admin to approve / update order status (e.g. processing, shipped, delivered, cancelled)
-        and moderate payment status.
+        and moderate payment status. Strictly checks ownership to prevent IDOR status manipulation.
         """
         order = self.get_object()
+
+        # Authorization: caller must be administrator or seller of at least one book in this order
+        is_admin = bool(request.user.is_staff or request.user.is_superuser)
+        is_order_seller = order.items.filter(book__seller=request.user).exists()
+        if not (is_admin or is_order_seller):
+            return Response(
+                {"error": "You do not have permission to update the status of this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         new_status = request.data.get('status')
         new_payment_status = request.data.get('payment_status')
 
@@ -731,51 +742,36 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 class ContactViewSet(viewsets.ModelViewSet):
     """
-    Public and Admin endpoint for handling Contact Inquiries sent to bipronathsaha@gmail.com.
-    POST /api/contact/ : Dispatches and stores visitor messages
-    GET /api/contact/  : Allows store admin to review all inquiries
+    Public submission and Admin moderation endpoint for Contact Inquiries:
+    POST /api/contact/ : Dispatches and stores visitor messages with sanitization
+    GET /api/contact/  : Restricted to store administrator (prevents PII leakage)
     """
     queryset = ContactInquiry.objects.all().order_by('-id')
     serializer_class = ContactInquirySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsContactManagerOrSubmitOnly]
 
     def create(self, request, *args, **kwargs):
-        name = request.data.get('name', '').strip()
-        email = request.data.get('email', '').strip()
-        contact = request.data.get('contact', '').strip()
-        message = request.data.get('message', '').strip()
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if not name:
-            return Response({"error": "Please provide your name."}, status=status.HTTP_400_BAD_REQUEST)
-        if not email or '@' not in email:
-            return Response({"error": "Please provide a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
-        if not message:
-            return Response({"error": "Please write your message."}, status=status.HTTP_400_BAD_REQUEST)
-
-        inquiry = ContactInquiry.objects.create(
-            name=name,
-            email=email,
-            contact=contact,
-            message=message,
-            recipient_email='bipronathsaha@gmail.com'
-        )
+        inquiry = serializer.save(recipient_email='bipronathsaha@gmail.com')
 
         # Attempt sending through Django email if SMTP is configured
         try:
             from django.core.mail import send_mail
-            email_subject = f"[FolioVerse Contact] New inquiry from {name}"
-            email_body = f"Hello Authority,\n\nName: {name}\nEmail: {email}\nContact: {contact}\n\nMessage:\n{message}\n\n---\nSent via FolioVerse Contact Form"
+            email_subject = f"[FolioVerse Contact] New inquiry from {inquiry.name}"
+            email_body = f"Hello Authority,\n\nName: {inquiry.name}\nEmail: {inquiry.email}\nContact: {inquiry.contact}\n\nMessage:\n{inquiry.message}\n\n---\nSent via FolioVerse Contact Form"
             send_mail(
                 email_subject,
                 email_body,
-                email,
+                inquiry.email,
                 ['bipronathsaha@gmail.com'],
                 fail_silently=True
             )
         except Exception:
             pass
 
-        serializer = self.get_serializer(inquiry)
         return Response(
             {
                 "success": True,

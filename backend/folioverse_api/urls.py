@@ -37,15 +37,24 @@ def api_root(request):
 
 
 from django.core.management import call_command
+from django.conf import settings
+from rest_framework import permissions
 from books.models import Book
 
 
-@api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@api_view(['POST'])
 def seed_database_api(request):
     """
-    Automated endpoint to seed 2,000 books and demo accounts without requiring a paid Render shell.
+    Automated endpoint to seed demo accounts and catalog.
+    Restricted to store administrators or development environments.
     """
+    is_admin = bool(request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser))
+    if not (settings.DEBUG or is_admin):
+        return Response({
+            "status": "error",
+            "message": "Database seeding is disabled in production for non-administrative users."
+        }, status=403)
+
     try:
         call_command('create_demo_accounts')
         current_count = Book.objects.count()

@@ -28,7 +28,8 @@ class BookStoreAPITests(TestCase):
                 language="Bengali",
                 stock=15,
                 condition="New",
-                description=f"Bengali literature description {i}"
+                description=f"Bengali literature description {i}",
+                seller=self.user
             )
             for i in range(1, 5)
         ] + [
@@ -101,7 +102,8 @@ class BookStoreAPITests(TestCase):
                 language="English",
                 stock=10,
                 condition="New",
-                description="Software architecture"
+                description="Software architecture",
+                seller=self.user
             )
         ]
 

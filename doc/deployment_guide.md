@@ -1,10 +1,11 @@
 # FolioVerse — Production Deployment Guide
-### Neon (PostgreSQL) + Render (Django REST API) + Vercel (React Frontend)
+### Neon (Serverless PostgreSQL) + Render (Django REST API) + Vercel (React Frontend)
 
 This guide provides step-by-step instructions for deploying FolioVerse across the modern serverless cloud stack:
-- **Database**: [Neon](https://neon.tech/) Serverless PostgreSQL 16
+- **Database**: [Neon](https://neon.tech/) Serverless PostgreSQL 16 with Connection Pooling
 - **Backend API**: [Render](https://render.com/) Web Service (Python 3.11 + Gunicorn + WhiteNoise)
 - **Frontend SPA**: [Vercel](https://vercel.com/) (React 19 + Vite + Tailwind CSS)
+- **CI/CD Security**: GitHub Actions Automated Vulnerability Audit (`pip-audit`, `bandit`, `npm audit`)
 
 ---
 
@@ -15,9 +16,9 @@ This guide provides step-by-step instructions for deploying FolioVerse across th
    - **Project Name**: `folioverse-db`
    - **Postgres Version**: `16` (or latest)
    - **Region**: Choose the region closest to your users or Render service (e.g., `Frankfurt (eu-central-1)` or `Oregon (us-west-2)`).
-3. **Retrieve Connection String**:
+3. **Retrieve Pooled Connection String**:
    - In your Neon project dashboard, locate the **Connection Details** box.
-   - Select **Connection string** and make sure **Pooled connection** is checked (recommended for web services).
+   - Select **Connection string** and check **Pooled connection** (recommended for web services).
    - Copy the URI, which looks like:
      ```text
      postgresql://<username>:<password>@<ep-pooler-id>.neon.tech/<dbname>?sslmode=require
@@ -34,7 +35,7 @@ This guide provides step-by-step instructions for deploying FolioVerse across th
    - Select **Build and deploy from a Git repository**.
    - Connect your **`FolioVerse`** repository.
 3. **Configure the Service Settings**:
-   - **Name**: `folioverse-api` (or your preferred name)
+   - **Name**: `folioverse-api` (or your chosen service name)
    - **Region**: Same or close to your Neon database region.
    - **Branch**: `main`
    - **Root Directory**: `backend` *(CRITICAL: must be set to `backend`)*
@@ -42,20 +43,23 @@ This guide provides step-by-step instructions for deploying FolioVerse across th
    - **Build Command**: `bash build.sh`
    - **Start Command**: `gunicorn folioverse_api.wsgi:application --bind 0.0.0.0:$PORT`
    - **Instance Type**: `Free` (or Starter)
-4. **Configure Environment Variables**:
+4. **Configure Environment Variables (Hardened)**:
    Click **Advanced** $\rightarrow$ **Add Environment Variable** and add the following:
 
    | Key | Value | Notes |
    | :--- | :--- | :--- |
-   | `PYTHON_VERSION` | `3.11.7` | Matches runtime |
+   | `PYTHON_VERSION` | `3.11.7` | Standard Python runtime |
    | `DEBUG` | `False` | Disables debug mode in production |
-   | `SECRET_KEY` | *(Click "Generate" or paste a strong random string)* | Production secret |
-   | `ALLOWED_HOSTS` | `*` | Or `.onrender.com` |
+   | `SECRET_KEY` | *(Click "Generate" or paste a strong 64-char key)* | Production secret (mandatory when `DEBUG=False`) |
+   | `ALLOWED_HOSTS` | `.onrender.com,localhost,127.0.0.1` | Constrains host header attacks |
+   | `CORS_ALLOWED_ORIGINS` | `https://your-frontend.vercel.app,http://localhost:5173` | Strict trusted origins |
+   | `SECURE_SSL_REDIRECT` | `True` | Forces HTTPS redirection |
+   | `SECURE_HSTS_SECONDS` | `31536000` | 1-year HSTS header enforcement |
    | `DATABASE_URL` | *(Paste your Neon pooled connection string from Step 1)* | Automatically parsed by `dj-database-url` |
 
 5. **Deploy**:
    - Click **Create Web Service**.
-   - Render will clone the repository, run `bash build.sh` (installing dependencies, collecting static files with WhiteNoise, and applying migrations to Neon), and start Gunicorn.
+   - Render runs `bash build.sh` (installs dependencies, collects static files with WhiteNoise, and applies all migrations to Neon), then launches Gunicorn.
    - Once deployed, copy your backend URL (e.g., `https://folioverse-api.onrender.com`).
    - Verify health check in your browser: `https://folioverse-api.onrender.com/api/` should return HTTP 200 OK!
 
@@ -105,14 +109,25 @@ python backend/manage.py seed_bookstore --target 2000
 
 5. **Deploy**:
    - Click **Deploy**.
-   - Vercel will install dependencies and build the Vite bundle with the `frontend/vercel.json` SPA routing rewrites.
+   - Vercel installs dependencies and builds the Vite bundle with `frontend/vercel.json` SPA routing rewrites.
    - In ~1 minute, your live production site will be active (e.g., `https://folioverse.vercel.app`)!
 
 ---
 
-## ✅ Step 5: End-to-End Verification Checklist
+## 🔒 Step 5: Post-Deployment Security & CORS Finalization
 
-1. **Catalog Browsing**: Open your Vercel URL. Books and genre tabs should load smoothly.
+1. Return to your **Render Web Service** dashboard $\rightarrow$ **Environment Variables**.
+2. Update `CORS_ALLOWED_ORIGINS` to include your newly generated Vercel domain:
+   ```text
+   CORS_ALLOWED_ORIGINS=https://folioverse.vercel.app,https://your-custom-domain.com
+   ```
+3. Render will automatically redeploy with the updated CORS policy.
+
+---
+
+## ✅ Step 6: End-to-End Verification Checklist
+
+1. **Catalog Browsing**: Open your Vercel URL. Books and genre tabs should load smoothly with active live counts.
 2. **Search & Filter**: Search for a title, filter by Bengali/English literature, test price sorting.
 3. **Seller Operations**:
    - Click **Login** $\rightarrow$ Click **"1-Click Seller Login"** (or use `seller_demo` / `seller12345`).
@@ -122,3 +137,5 @@ python backend/manage.py seed_bookstore --target 2000
    - Log in as buyer (`buyer_demo` / `buyer12345`).
    - Add books to cart, click **Checkout**, select **bKash / Nagad / Rocket**, complete simulated OTP & PIN.
    - Verify atomic order confirmation!
+5. **Security Regression Tests**:
+   - Automated CI workflow runs on GitHub (`.github/workflows/security-audit.yml`).
