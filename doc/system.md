@@ -8,33 +8,36 @@
 
 ## 1. High-Level Architecture Overview
 
-FolioVerse is constructed using a decoupled client-server architecture:
-- **Frontend Layer:** Single Page Application (SPA) built with React 19, Vite 8, Tailwind CSS, and custom glassmorphism design tokens.
-- **API & Application Layer:** Django 5.2 and Django REST Framework (DRF) running WSGI/ASGI services.
-- **Persistence Layer:** PostgreSQL 16 relational database with multi-column composite B-Tree indexes and SQL CHECK constraints.
-- **Authentication & Security Layer:** DRF Token Authentication, Role-Based Access Control (RBAC), and IP/User rate throttles.
+FolioVerse is constructed using a decoupled, defense-in-depth architecture:
+- **Frontend Layer:** Single Page Application (SPA) built with React 19, Vite 8, Tailwind CSS, and centralized Axios interceptors.
+- **Edge & Transport Layer:** Strict CORS origin policies, SecurityHeadersMiddleware (CSP, HSTS, X-Frame-Options DENY, nosniff, Permissions-Policy).
+- **API & Application Gateway:** Django 5.2 and Django REST Framework (DRF) running WSGI/ASGI services with composite IP+Username rate throttles.
+- **Access Control & Permissions Layer:** Zero-trust object-level permissions (`IsOwnerOrReadOnly`, `IsOrderParticipantOrAdmin`) to eliminate IDOR, mass-assignment locks, and XSS sanitization.
+- **Persistence Layer:** PostgreSQL 16 relational database with multi-column composite B-Tree indexes, row-level concurrency locks (`select_for_update`), and SQL constraints.
 
 ```mermaid
 graph TD
-    Client["Client Devices (Mobile / Tablet / Desktop)"]
+    Client["Client Devices (Firefox / Chrome / Mobile)"]
     ViteApp["React 19 + Tailwind CSS Frontend (Port 5173)"]
+    SecurityHeaders["Edge Security (CSP / HSTS / Strict CORS)"]
     DRF["Django REST Framework API Gateway (Port 8000)"]
-    Throttle["Throttling Middleware (Anon 20 rpm / Auth 50 rpm)"]
-    AuthModule["Token Auth & RBAC (accounts / authtoken)"]
+    Throttle["Rate Throttling (IP+Username Composite & Burst)"]
+    AuthModule["Token Auth with Rotation & RBAC"]
+    ZeroTrust["Zero-Trust Permissions (IsOwnerOrReadOnly)"]
     BookViewSet["BookViewSet & BookFilter (books)"]
-    TaxonomyEngine["Taxonomy & Stats Engine"]
-    BuyAction["Atomic Checkout Engine (select_for_update)"]
-    PostgreSQL[("PostgreSQL 16 Database (books_book table)")]
+    OrderViewSet["OrderViewSet & MFS Gateway (orders)"]
+    PostgreSQL[("PostgreSQL 16 Database (Neon Serverless)")]
 
-    Client -->|HTTPS / HTTP| ViteApp
-    ViteApp -->|REST / JSON| DRF
+    Client -->|HTTPS / WSS| ViteApp
+    ViteApp -->|REST API Requests| SecurityHeaders
+    SecurityHeaders --> DRF
     DRF --> Throttle
     Throttle --> AuthModule
-    AuthModule --> BookViewSet
-    BookViewSet --> TaxonomyEngine
-    BookViewSet --> BuyAction
-    TaxonomyEngine -->|Aggregations & Index Scans| PostgreSQL
-    BuyAction -->|Row-Level Lock & Atomic Save| PostgreSQL
+    AuthModule --> ZeroTrust
+    ZeroTrust --> BookViewSet
+    ZeroTrust --> OrderViewSet
+    BookViewSet -->|Indexed Queries & Updates| PostgreSQL
+    OrderViewSet -->|Atomic select_for_update Transactions| PostgreSQL
 ```
 
 ---
