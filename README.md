@@ -8,6 +8,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Tests Passing](https://img.shields.io/badge/Tests-36%2F36%20Passing-success?style=for-the-badge&logo=pytest&logoColor=white)](https://github.com/BipronathSaha12/FolioVerse)
 [![Security Hardened](https://img.shields.io/badge/Security-4--Layer%20Hardened-blueviolet?style=for-the-badge&logo=shield&logoColor=white)](https://github.com/BipronathSaha12/FolioVerse)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](https://opensource.org/licenses/Apache-2.0)
 
 A full-stack, enterprise-grade Book Store Management System and REST API. Built with **Django REST Framework (DRF)**, **PostgreSQL (Neon)**, **React 19**, and **Tailwind CSS**, featuring 4-Layer Defense-in-Depth Security Hardening, Role-Based Access Control (RBAC) with dedicated **Store Admin**, **Book Seller**, and **Book Buyer** portals, an interactive **MFS Payment Gateway** (bKash, Nagad, Rocket), and catalog price moderation.
 
@@ -391,3 +392,19 @@ Detailed specifications and architectural guides are available in the [doc/](fil
 - [Payment Gateway Guide](file:///f:/Projects/FolioVerse/doc/paymentGatwayGuide.md): MFS simulation lifecycle and security state machine.
 - [Seller Guide](file:///f:/Projects/FolioVerse/doc/seller_guide.md): Seller operations, fulfillment, and pricing manual.
 - [System Architecture](file:///f:/Projects/FolioVerse/doc/system.md): High-level system design and entity-relationship model.
+
+---
+
+## 📄 License
+
+This project is licensed under the **Apache License, Version 2.0**. See the [LICENSE](file:///f:/Projects/FolioVerse/LICENSE) file for the full license text and patent grant details.
+
+```text
+Copyright 2026 Bipronath Saha (bipronathsaha@gmail.com)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+```
