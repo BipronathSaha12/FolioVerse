@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider, useCart } from './context/CartContext';
@@ -14,17 +15,170 @@ import { BookDetailModal } from './components/BookDetailModal';
 import { BuyBookModal } from './components/BuyBookModal';
 import { SellBookModal } from './components/SellBookModal';
 import { ContactModal } from './components/ContactModal';
-import { AdminDashboardModal } from './components/AdminDashboardModal';
-import { BuyerDashboardModal } from './components/BuyerDashboardModal';
-import { SellerDashboardModal } from './components/SellerDashboardModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ToastContainer } from './components/Toast';
+import { BookDetailPage } from './pages/BookDetailPage';
+import { CartPage } from './pages/CartPage';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { SellerDashboardPage } from './pages/SellerDashboardPage';
+import { BuyerDashboardPage } from './pages/BuyerDashboardPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { RefreshCw, BookOpen, ShoppingBag, ShieldCheck, Mail, Phone } from 'lucide-react';
 
+function CatalogHome({
+  totalBooks,
+  setSellModalOpen,
+  setAuthModal,
+  setContactModalOpen,
+  categoryFilter,
+  setCategoryFilter,
+  subcategoryFilter,
+  setSubcategoryFilter,
+  setCurrentPage,
+  fetchBooks,
+  loading,
+  currentPage,
+  totalPages,
+  searchQuery,
+  setSearchQuery,
+  inStockOnly,
+  setInStockOnly,
+  ordering,
+  setOrdering,
+  handleResetFilters,
+  books,
+  onViewBook,
+  onBuyBook,
+  setBookModal,
+  setDeleteModal,
+  isAuthenticated,
+  handleRequireAuth,
+  handleSeedDatabase,
+  isSeeding,
+}) {
+  return (
+    <main className="flex-1">
+      {/* Bookstore Hero Section */}
+      <HeroSection
+        totalBooks={totalBooks}
+        onOpenSellBook={() => setSellModalOpen(true)}
+        onOpenAuth={(mode = 'register', role = 'buyer') => setAuthModal({ open: true, mode, role })}
+        onOpenContact={() => setContactModalOpen(true)}
+        onSelectCategory={(cat) => {
+          setCategoryFilter(cat);
+          setSubcategoryFilter('');
+          setCurrentPage(1);
+        }}
+        onSelectSubcategory={(sub) => {
+          setSubcategoryFilter(sub);
+          setCurrentPage(1);
+        }}
+      />
+
+      {/* Catalog Section */}
+      <section id="catalog" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-20">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
+                <BookOpen className="w-6 h-6 text-cyan-400" />
+                <span>Available Books Catalog</span>
+              </h2>
+              <button
+                onClick={fetchBooks}
+                disabled={loading}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                title="Refresh books list from PostgreSQL"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+              </button>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              Browse, buy, and inspect verified books with live stock and multi-language support.
+            </p>
+          </div>
+
+          {/* Pagination & Active Filter Status */}
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            {categoryFilter && (
+              <div className="px-2.5 py-1 rounded-lg bg-cyan-950/80 border border-cyan-500/30 text-cyan-300 font-semibold">
+                {categoryFilter} {subcategoryFilter ? `• ${subcategoryFilter}` : ''}
+              </div>
+            )}
+            <div>
+              Page <span className="font-semibold text-white">{currentPage}</span> of{' '}
+              <span className="font-semibold text-white">{totalPages || 1}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Bar with Categories & Subcategories */}
+        <FilterBar
+          searchQuery={searchQuery}
+          onSearchChange={(val) => {
+            setSearchQuery(val);
+            setCurrentPage(1);
+          }}
+          categoryFilter={categoryFilter}
+          onCategoryChange={(cat) => {
+            setCategoryFilter(cat);
+            setCurrentPage(1);
+          }}
+          subcategoryFilter={subcategoryFilter}
+          onSubcategoryChange={(sub) => {
+            setSubcategoryFilter(sub);
+            setCurrentPage(1);
+          }}
+          inStockOnly={inStockOnly}
+          onInStockToggle={(val) => {
+            setInStockOnly(val);
+            setCurrentPage(1);
+          }}
+          ordering={ordering}
+          onOrderingChange={(val) => {
+            setOrdering(val);
+            setCurrentPage(1);
+          }}
+          onResetFilters={handleResetFilters}
+          totalResults={totalBooks}
+        />
+
+        {/* Book Cards Grid (10 books per page) */}
+        <BookGrid
+          books={books}
+          loading={loading}
+          onViewBook={onViewBook}
+          onBuyBook={onBuyBook}
+          onEditBook={(book) => setBookModal({ open: true, book })}
+          onDeleteBook={(book) => setDeleteModal({ open: true, book })}
+          isAuthenticated={isAuthenticated}
+          onRequireAuth={handleRequireAuth}
+          onResetFilters={handleResetFilters}
+          onSeedDatabase={handleSeedDatabase}
+          isSeeding={isSeeding}
+        />
+
+        {/* Pagination Controls (10 items per page with sliding window for 200+ pages) */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalCount={totalBooks}
+          pageSize={10}
+          onPageChange={(page) => {
+            setCurrentPage(page);
+            window.scrollTo({ top: 380, behavior: 'smooth' });
+          }}
+        />
+      </section>
+    </main>
+  );
+}
+
 function FolioVerseContent() {
+  const navigate = useNavigate();
   const { isAuthenticated, isAdmin, isSeller } = useAuth();
-  const { openCart } = useCart();
+  const { openCart, addToCart } = useCart();
 
   // Books state
   const [books, setBooks] = useState([]);
@@ -51,9 +205,6 @@ function FolioVerseContent() {
   const [buyModal, setBuyModal] = useState({ open: false, book: null });
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
-  const [buyerDashboardOpen, setBuyerDashboardOpen] = useState(false);
-  const [sellerDashboardOpen, setSellerDashboardOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, book: null });
 
   // Cart toast sync
@@ -129,7 +280,7 @@ function FolioVerseContent() {
       console.error('Error fetching books:', err);
       if (err.response?.status === 429) {
         addToast(
-          'Request rate limit exceeded. Anonymous users are limited to 20 req/min, authenticated users to 50 req/min.',
+          'Request rate limit exceeded. Anonymous users are limited to 30 req/min, authenticated users to 60 req/min.',
           'warning',
           'Rate Throttled (429)'
         );
@@ -178,7 +329,7 @@ function FolioVerseContent() {
   const [isSeeding, setIsSeeding] = useState(false);
   const handleSeedDatabase = async () => {
     setIsSeeding(true);
-    addToast('Populating 2,000 books and demo accounts into Neon database...', 'info', 'Seeding Started');
+    addToast('Populating 2,000 books and demo accounts into database...', 'info', 'Seeding Started');
     try {
       const res = await bookService.seedDatabase();
       addToast(res.data?.message || 'Successfully seeded 2,000 books!', 'success', 'Catalog Ready');
@@ -201,17 +352,19 @@ function FolioVerseContent() {
         onOpenAuth={(mode = 'login', role = 'buyer') => setAuthModal({ open: true, mode, role })}
         onOpenSellBook={() => setSellModalOpen(true)}
         onOpenContact={() => setContactModalOpen(true)}
-        onOpenDashboard={() => setAdminDashboardOpen(true)}
-        onOpenBuyerDashboard={() => setBuyerDashboardOpen(true)}
-        onOpenSellerDashboard={() => setSellerDashboardOpen(true)}
+        onOpenDashboard={() => navigate('/dashboard/admin')}
+        onOpenBuyerDashboard={() => navigate('/dashboard/buyer')}
+        onOpenSellerDashboard={() => navigate('/dashboard/seller')}
         onSelectCategory={(cat) => {
           setCategoryFilter(cat);
           setSubcategoryFilter('');
           setCurrentPage(1);
+          navigate('/');
         }}
         onSelectSubcategory={(sub) => {
           setSubcategoryFilter(sub);
           setCurrentPage(1);
+          navigate('/');
         }}
         selectedCategory={categoryFilter}
         selectedSubcategory={subcategoryFilter}
@@ -219,123 +372,113 @@ function FolioVerseContent() {
         bookCount={totalBooks}
       />
 
-      {/* Main Bookstore Container */}
-      <main className="flex-1">
-        {/* Bookstore Hero Section */}
-        <HeroSection
-          totalBooks={totalBooks}
-          onOpenSellBook={() => setSellModalOpen(true)}
-          onOpenAuth={(mode = 'register', role = 'buyer') => setAuthModal({ open: true, mode, role })}
-          onOpenContact={() => setContactModalOpen(true)}
-          onSelectCategory={(cat) => {
-            setCategoryFilter(cat);
-            setSubcategoryFilter('');
-            setCurrentPage(1);
-          }}
-          onSelectSubcategory={(sub) => {
-            setSubcategoryFilter(sub);
-            setCurrentPage(1);
-          }}
-        />
-
-        {/* Catalog Section */}
-        <section id="catalog" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-20">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
-                  <BookOpen className="w-6 h-6 text-cyan-400" />
-                  <span>Available Books Catalog</span>
-                </h2>
-                <button
-                  onClick={fetchBooks}
-                  disabled={loading}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
-                  title="Refresh books list from PostgreSQL"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
-                </button>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Browse, buy, and inspect verified books with live stock and multi-language support.
-              </p>
-            </div>
-
-            {/* Pagination & Active Filter Status */}
-            <div className="flex items-center gap-3 text-xs text-slate-400">
-              {categoryFilter && (
-                <div className="px-2.5 py-1 rounded-lg bg-cyan-950/80 border border-cyan-500/30 text-cyan-300 font-semibold">
-                  {categoryFilter} {subcategoryFilter ? `• ${subcategoryFilter}` : ''}
-                </div>
-              )}
-              <div>
-                Page <span className="font-semibold text-white">{currentPage}</span> of{' '}
-                <span className="font-semibold text-white">{totalPages || 1}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Bar with Categories & Subcategories */}
-          <FilterBar
-            searchQuery={searchQuery}
-            onSearchChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            categoryFilter={categoryFilter}
-            onCategoryChange={(cat) => {
-              setCategoryFilter(cat);
-              setCurrentPage(1);
-            }}
-            subcategoryFilter={subcategoryFilter}
-            onSubcategoryChange={(sub) => {
-              setSubcategoryFilter(sub);
-              setCurrentPage(1);
-            }}
-            inStockOnly={inStockOnly}
-            onInStockToggle={(val) => {
-              setInStockOnly(val);
-              setCurrentPage(1);
-            }}
-            ordering={ordering}
-            onOrderingChange={(val) => {
-              setOrdering(val);
-              setCurrentPage(1);
-            }}
-            onResetFilters={handleResetFilters}
-            totalResults={totalBooks}
+      {/* React Router Routes View Area */}
+      <div className="flex-1">
+        <Routes>
+          {/* Main Catalog Home */}
+          <Route
+            path="/"
+            element={
+              <CatalogHome
+                totalBooks={totalBooks}
+                setSellModalOpen={setSellModalOpen}
+                setAuthModal={setAuthModal}
+                setContactModalOpen={setContactModalOpen}
+                categoryFilter={categoryFilter}
+                setCategoryFilter={setCategoryFilter}
+                subcategoryFilter={subcategoryFilter}
+                setSubcategoryFilter={setSubcategoryFilter}
+                setCurrentPage={setCurrentPage}
+                fetchBooks={fetchBooks}
+                loading={loading}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                inStockOnly={inStockOnly}
+                setInStockOnly={setInStockOnly}
+                ordering={ordering}
+                setOrdering={setOrdering}
+                handleResetFilters={handleResetFilters}
+                books={books}
+                onViewBook={(book) => navigate(`/books/${book.id}`)}
+                onBuyBook={(book) => {
+                  addToCart(book, 1);
+                  navigate('/checkout');
+                }}
+                setBookModal={setBookModal}
+                setDeleteModal={setDeleteModal}
+                isAuthenticated={isAuthenticated}
+                handleRequireAuth={handleRequireAuth}
+                handleSeedDatabase={handleSeedDatabase}
+                isSeeding={isSeeding}
+              />
+            }
           />
 
-          {/* Book Cards Grid (10 books per page) */}
-          <BookGrid
-            books={books}
-            loading={loading}
-            onViewBook={(book) => setDetailModal({ open: true, book })}
-            onBuyBook={(book) => setBuyModal({ open: true, book })}
-            onEditBook={(book) => setBookModal({ open: true, book })}
-            onDeleteBook={(book) => setDeleteModal({ open: true, book })}
-            isAuthenticated={isAuthenticated}
-            onRequireAuth={handleRequireAuth}
-            onResetFilters={handleResetFilters}
-            onSeedDatabase={handleSeedDatabase}
-            isSeeding={isSeeding}
+          {/* Dedicated Book Detail Route (/books/:id) */}
+          <Route
+            path="/books/:id"
+            element={
+              <BookDetailPage
+                onEditBook={(book) => setBookModal({ open: true, book })}
+                onDeleteBook={(book) => setDeleteModal({ open: true, book })}
+                addToast={addToast}
+              />
+            }
           />
 
-          {/* Pagination Controls (10 items per page with sliding window for 200+ pages) */}
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalCount={totalBooks}
-            pageSize={10}
-            onPageChange={(page) => {
-              setCurrentPage(page);
-              window.scrollTo({ top: 380, behavior: 'smooth' });
-            }}
-          />
-        </section>
-      </main>
+          {/* Dedicated Cart Route (/cart) */}
+          <Route path="/cart" element={<CartPage />} />
 
-      {/* Buy Book Instant Checkout Modal */}
+          {/* Dedicated Checkout Route (/checkout) */}
+          <Route
+            path="/checkout"
+            element={
+              <CheckoutPage
+                onOrderPlaced={(order) => {
+                  addToast(`Order #${order.order_number} successfully placed!`, 'success', 'Order Confirmed');
+                  fetchBooks();
+                }}
+                addToast={addToast}
+              />
+            }
+          />
+
+          {/* Dedicated Seller Portal Route (/dashboard/seller) */}
+          <Route
+            path="/dashboard/seller"
+            element={
+              <SellerDashboardPage
+                onOpenAddBook={() => setSellModalOpen(true)}
+                onEditBook={(book) => setBookModal({ open: true, book })}
+                onRefreshCatalog={fetchBooks}
+              />
+            }
+          />
+
+          {/* Dedicated Buyer Dashboard Route (/dashboard/buyer) */}
+          <Route path="/dashboard/buyer" element={<BuyerDashboardPage />} />
+
+          {/* Dedicated Admin Dashboard Route (/dashboard/admin) */}
+          <Route
+            path="/dashboard/admin"
+            element={
+              <AdminDashboardPage
+                onOpenAddBook={() => setSellModalOpen(true)}
+                onEditBook={(book) => setBookModal({ open: true, book })}
+                onDeleteBook={(book) => setDeleteModal({ open: true, book })}
+                onRefreshCatalog={fetchBooks}
+              />
+            }
+          />
+
+          {/* Fallback to Home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+
+      {/* Buy Book Instant Checkout Modal (Fallback) */}
       <BuyBookModal
         isOpen={buyModal.open}
         book={buyModal.book}
@@ -356,65 +499,23 @@ function FolioVerseContent() {
         }}
       />
 
-      {/* Contact Modal (direct to bipronathsaha@gmail.com) */}
+      {/* Contact Modal */}
       <ContactModal
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
         onSuccess={(msg) => addToast(msg, 'success', 'Message Prepared')}
       />
 
-      {/* Store Admin Dashboard (Strictly restricted to Admin staff) */}
-      {isAdmin && (
-        <AdminDashboardModal
-          isOpen={adminDashboardOpen}
-          onClose={() => setAdminDashboardOpen(false)}
-          onOpenAddBook={() => setSellModalOpen(true)}
-          onEditBook={(book) => setBookModal({ open: true, book })}
-          onDeleteBook={(book) => setDeleteModal({ open: true, book })}
-          onRefreshCatalog={fetchBooks}
-          totalBooksCount={totalBooks}
-        />
-      )}
-
-      {/* Dedicated Seller Portal & Order Fulfillment Dashboard */}
-      {isSeller && (
-        <SellerDashboardModal
-          isOpen={sellerDashboardOpen}
-          onClose={() => setSellerDashboardOpen(false)}
-          onOpenAddBook={() => setSellModalOpen(true)}
-          onEditBook={(book) => setBookModal({ open: true, book })}
-          onRefreshCatalog={fetchBooks}
-        />
-      )}
-
-      {/* Dedicated Buyer Account & Orders Portal (Strictly for buyers, not admin or seller) */}
-      {!isAdmin && !isSeller && (
-        <BuyerDashboardModal
-          isOpen={buyerDashboardOpen || (!isAdmin && !isSeller && adminDashboardOpen)}
-          onClose={() => {
-            setBuyerDashboardOpen(false);
-            setAdminDashboardOpen(false);
-          }}
-          onOpenCart={() => {
-            setBuyerDashboardOpen(false);
-            setAdminDashboardOpen(false);
-            openCart();
-          }}
-          onBrowseCatalog={() => {
-            setBuyerDashboardOpen(false);
-            setAdminDashboardOpen(false);
-            const catalogEl = document.getElementById('catalog');
-            if (catalogEl) catalogEl.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
-      )}
-
-      {/* Book Detail Modal with Instant Buy Button */}
+      {/* Book Detail Modal (Fallback for quick modal views) */}
       <BookDetailModal
         isOpen={detailModal.open}
         book={detailModal.book}
         onClose={() => setDetailModal({ open: false, book: null })}
-        onBuy={(book) => setBuyModal({ open: true, book })}
+        onBuy={(book) => {
+          setDetailModal({ open: false, book: null });
+          addToCart(book, 1);
+          navigate('/checkout');
+        }}
         onEdit={(book) => {
           setDetailModal({ open: false, book: null });
           setBookModal({ open: true, book });
@@ -458,7 +559,7 @@ function FolioVerseContent() {
         onSuccess={(msg) => addToast(msg, 'success', 'Authenticated')}
       />
 
-      {/* Slide-out Cart Drawer with Multi-Option Checkout (bKash, Nagad, Rocket, COD) */}
+      {/* Slide-out Cart Drawer with Multi-Option Checkout */}
       <CartDrawer
         onOrderPlaced={(order) => {
           addToast(`Order #${order.order_number} successfully placed!`, 'success', 'Order Confirmed');
@@ -473,9 +574,9 @@ function FolioVerseContent() {
             {/* Brand & Mission */}
             <div className="max-w-lg text-center md:text-left space-y-1.5">
               <div className="flex items-center justify-center md:justify-start gap-2">
-                <span className="font-extrabold text-white text-base bg-gradient-to-r from-white via-cyan-200 to-emerald-300 bg-clip-text text-transparent">
+                <Link to="/" className="font-extrabold text-white text-base bg-gradient-to-r from-white via-cyan-200 to-emerald-300 bg-clip-text text-transparent">
                   FolioVerse
-                </span>
+                </Link>
                 <span className="text-slate-600">•</span>
                 <span className="text-slate-300 font-medium">Digital Book Shop</span>
               </div>
@@ -530,7 +631,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <CartProvider>
-          <FolioVerseContent />
+          <BrowserRouter>
+            <FolioVerseContent />
+          </BrowserRouter>
         </CartProvider>
       </AuthProvider>
     </ThemeProvider>

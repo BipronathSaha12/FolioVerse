@@ -11,20 +11,19 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('folioverse_token') || null);
   const [loading, setLoading] = useState(true);
 
-  // Validate stored token on mount
+  // Validate stored token on mount and fetch authoritative profile
   useEffect(() => {
     const initAuth = async () => {
       if (token) {
         try {
           const res = await authService.getProfile();
           const profileData = res.data;
-          const storedRole = localStorage.getItem('folioverse_role');
-          const isStaff = Boolean(profileData.is_staff || profileData.is_superuser || profileData.username === 'admin');
-          const isSellerUser = Boolean(profileData.username?.toLowerCase().includes('seller'));
-          const finalRole = isStaff ? 'admin' : (storedRole || (isSellerUser ? 'seller' : 'buyer'));
-          const enrichedUser = { ...profileData, role: finalRole };
+          // Authoritative role directly from backend database schema (no username guessing)
+          const authoritativeRole = profileData.role || (profileData.is_staff || profileData.is_superuser ? 'admin' : 'buyer');
+          const enrichedUser = { ...profileData, role: authoritativeRole };
           setUser(enrichedUser);
           localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
+          localStorage.setItem('folioverse_role', authoritativeRole);
         } catch (err) {
           console.warn('Session expired or invalid token:', err);
           logout();
@@ -36,17 +35,16 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, [token]);
 
-  const login = async (username, password, roleHint = null) => {
+  const login = async (username, password) => {
     const res = await authService.login({ username, password });
     const { token: newToken, user: userData } = res.data;
-    const isStaff = Boolean(userData.is_staff || userData.is_superuser || userData.username === 'admin');
-    const isSellerUser = Boolean(userData.username?.toLowerCase().includes('seller'));
-    const computedRole = isStaff ? 'admin' : (roleHint || (isSellerUser ? 'seller' : 'buyer'));
-    const enrichedUser = { ...userData, role: computedRole };
+    // Database-backed authoritative role
+    const authoritativeRole = userData.role || (userData.is_staff || userData.is_superuser ? 'admin' : 'buyer');
+    const enrichedUser = { ...userData, role: authoritativeRole };
     setToken(newToken);
     setUser(enrichedUser);
     localStorage.setItem('folioverse_token', newToken);
-    localStorage.setItem('folioverse_role', computedRole);
+    localStorage.setItem('folioverse_role', authoritativeRole);
     localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
     return res.data;
   };
@@ -57,15 +55,15 @@ export const AuthProvider = ({ children }) => {
       email,
       password,
       password_confirm: passwordConfirm,
+      role, // Pass explicit role to the database backend
     });
     const { token: newToken, user: userData } = res.data;
-    const isStaff = Boolean(userData.is_staff || userData.is_superuser || userData.username === 'admin');
-    const computedRole = isStaff ? 'admin' : (role || 'buyer');
-    const enrichedUser = { ...userData, role: computedRole };
+    const authoritativeRole = userData.role || role;
+    const enrichedUser = { ...userData, role: authoritativeRole };
     setToken(newToken);
     setUser(enrichedUser);
     localStorage.setItem('folioverse_token', newToken);
-    localStorage.setItem('folioverse_role', computedRole);
+    localStorage.setItem('folioverse_role', authoritativeRole);
     localStorage.setItem('folioverse_user', JSON.stringify(enrichedUser));
     return res.data;
   };
@@ -86,9 +84,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const isAdmin = Boolean((user?.is_staff || user?.is_superuser || user?.username === 'admin') && user?.role !== 'buyer' && user?.role !== 'seller');
-  const isSeller = Boolean(user?.role === 'seller' || user?.username?.toLowerCase().includes('seller'));
-  const isBuyer = Boolean(!isAdmin && !isSeller);
+  // Strictly database-enforced RBAC (zero username guessing)
+  const isAdmin = Boolean(user?.role === 'admin' || user?.is_staff || user?.is_superuser);
+  const isSeller = Boolean(user?.role === 'seller');
+  const isBuyer = Boolean(user?.role === 'buyer' || (!isAdmin && !isSeller));
   const canManageBooks = Boolean(isAdmin || isSeller);
 
   return (

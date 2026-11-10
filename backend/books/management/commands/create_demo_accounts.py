@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
+from accounts.models import UserProfile
 
 
 class Command(BaseCommand):
@@ -50,6 +51,16 @@ class Command(BaseCommand):
             user.is_superuser = acc["is_superuser"]
             user.email = acc["email"]
             user.save()
+
+            # Assign explicit, authoritative database role
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if acc["username"] == "seller_demo":
+                profile.role = UserProfile.Role.SELLER
+            elif acc["username"] == "admin":
+                profile.role = UserProfile.Role.ADMIN
+            else:
+                profile.role = UserProfile.Role.BUYER
+            profile.save()
 
             token, _ = Token.objects.get_or_create(user=user)
             action = "Created" if created else "Updated"

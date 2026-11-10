@@ -2,23 +2,34 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
+from .models import UserProfile
 
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'date_joined']
-        read_only_fields = ['id', 'is_staff', 'is_superuser', 'date_joined']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_staff', 'is_superuser', 'date_joined']
+        read_only_fields = ['id', 'role', 'is_staff', 'is_superuser', 'date_joined']
+
+    def get_role(self, obj):
+        if obj.is_staff or obj.is_superuser or obj.username == 'admin':
+            return 'admin'
+        if hasattr(obj, 'profile') and obj.profile:
+            return str(obj.profile.role)
+        return 'buyer'
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=6, style={'input_type': 'password'})
     password_confirm = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
     email = serializers.EmailField(required=True)
+    role = serializers.ChoiceField(choices=['buyer', 'seller'], default='buyer', required=False)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'password_confirm']
+        fields = ['id', 'username', 'email', 'password', 'password_confirm', 'role']
         extra_kwargs = {
             'username': {'required': True},
         }
@@ -41,12 +52,19 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        role = validated_data.pop('role', 'buyer')
         validated_data.pop('password_confirm', None)
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password']
         )
+        # Assign explicit role to the user profile
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.role = str(role).lower()
+        profile.save()
+        user.profile = profile
+
         # Create token automatically for the newly registered user
         token, _ = Token.objects.get_or_create(user=user)
         return user
