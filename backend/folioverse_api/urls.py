@@ -1,8 +1,52 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.db import connection
+from django.core.cache import cache
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check_api(request):
+    """
+    Production Liveness and Readiness Probe for Render/Vercel/Kubernetes.
+    Verifies that the API worker, database connection, and cache backend are functional.
+    """
+    health = {
+        "status": "healthy",
+        "service": "folioverse-api",
+        "version": "1.0.0",
+        "database": "connected",
+        "cache": "connected",
+    }
+    status_code = 200
+
+    # Test Database Connectivity
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+            cursor.fetchone()
+    except Exception as e:
+        health["database"] = f"unhealthy: {str(e)}"
+        health["status"] = "degraded"
+        status_code = 503
+
+    # Test Cache Readiness
+    try:
+        cache.set("folioverse_health_probe", "ok", timeout=10)
+        cached_val = cache.get("folioverse_health_probe")
+        if cached_val != "ok":
+            health["cache"] = "degraded: read verification failed"
+            health["status"] = "degraded"
+            status_code = 503
+    except Exception as e:
+        health["cache"] = f"unhealthy: {str(e)}"
+        health["status"] = "degraded"
+        status_code = 503
+
+    return Response(health, status=status_code)
 
 
 @api_view(['GET'])
@@ -21,6 +65,7 @@ def api_root(request):
             "logout": request.build_absolute_uri("/api/logout/"),
             "books_list_create": request.build_absolute_uri("/api/books/"),
             "book_detail": request.build_absolute_uri("/api/books/<id>/"),
+            "health": request.build_absolute_uri("/api/health/"),
         },
         "query_features": {
             "filter_by_author": "/api/books/?author=J.K. Rowling",
@@ -30,8 +75,8 @@ def api_root(request):
             "pagination": "/api/books/?page=2",
         },
         "throttling": {
-            "anonymous": "20 requests/minute",
-            "authenticated": "50 requests/minute"
+            "anonymous": "30 requests/minute",
+            "authenticated": "60 requests/minute"
         }
     })
 
@@ -79,9 +124,10 @@ def seed_database_api(request):
 
 
 urlpatterns = [
-    # Root health and API overview for direct browser clicks
+    # Root API overview and production health/readiness probes
     path('', api_root, name='root-overview'),
-    path('health/', api_root, name='root-health'),
+    path('health/', health_check_api, name='root-health'),
+    path('healthz/', health_check_api, name='root-healthz'),
     path('admin/', admin.site.urls),
 
     # Automated 1-Click Database Seeding (No paid shell needed)
@@ -90,7 +136,8 @@ urlpatterns = [
 
     # Standard /api/ namespace
     path('api/', api_root, name='api-root'),
-    path('api/health/', api_root, name='api-health'),
+    path('api/health/', health_check_api, name='api-health'),
+    path('api/healthz/', health_check_api, name='api-healthz'),
     path('api/', include('accounts.urls')),
     path('api/', include('books.urls')),
 

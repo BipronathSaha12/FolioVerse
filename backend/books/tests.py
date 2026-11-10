@@ -389,3 +389,49 @@ class BookStoreAPITests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res.data['payment_method'], 'cod')
         self.assertEqual(res.data['payment_status'], 'pending')
+
+    def test_healthz_probes(self):
+        """
+        Verify liveness and readiness probe endpoints for deployment orchestrators.
+        """
+        for url in ['/health/', '/healthz/', '/api/health/', '/api/healthz/']:
+            res = self.client.get(url)
+            self.assertEqual(res.status_code, status.HTTP_200_OK)
+            self.assertEqual(res.data.get('status'), 'healthy')
+            self.assertEqual(res.data.get('database'), 'connected')
+            self.assertEqual(res.data.get('cache'), 'connected')
+
+    def test_taxonomy_endpoint(self):
+        """
+        Verify aggregated taxonomy endpoint with live category counts.
+        """
+        res = self.client.get('/api/books/taxonomy/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('categories', res.data)
+        self.assertIn('total_catalog_size', res.data)
+        self.assertIn('in_stock_count', res.data)
+        self.assertGreater(res.data['total_catalog_size'], 0)
+
+    def test_buyer_summary_aggregation(self):
+        """
+        Verify database-aggregated buyer summary analytics endpoint.
+        """
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        res = self.client.get('/api/orders/buyer-summary/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data.get('buyer_username'), self.user.username)
+        self.assertIn('total_orders', res.data)
+        self.assertIn('total_spent', res.data)
+        self.assertIn('categories_ordered', res.data)
+
+    def test_seller_summary_aggregation(self):
+        """
+        Verify database-aggregated seller summary analytics endpoint.
+        """
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        res = self.client.get('/api/orders/seller-summary/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data.get('seller_username'), self.user.username)
+        self.assertIn('total_listed_books', res.data)
+        self.assertIn('active_stock', res.data)
+        self.assertIn('total_revenue', res.data)

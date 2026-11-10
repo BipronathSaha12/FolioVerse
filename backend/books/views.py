@@ -2,7 +2,7 @@ import time
 import random
 from decimal import Decimal
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
@@ -148,19 +148,30 @@ class BookViewSet(viewsets.ModelViewSet):
             ]
         }
 
-        # Query live count per category
+        # High-efficiency SQL aggregation: retrieve category distribution in a single GROUP BY query
+        category_counts = {
+            item['category'].lower(): item['total']
+            for item in Book.objects.values('category').annotate(total=Count('id'))
+            if item.get('category')
+        }
+
+        # Single aggregate query for total catalog and active inventory metrics
+        catalog_metrics = Book.objects.aggregate(
+            total_catalog_size=Count('id'),
+            in_stock_count=Count('id', filter=Q(stock__gt=0))
+        )
+
         stats = {}
         for cat, subcats in taxonomy_data.items():
-            count = Book.objects.filter(category__iexact=cat).count()
             stats[cat] = {
                 "subcategories": subcats,
-                "total_books": count,
+                "total_books": category_counts.get(cat.lower(), 0),
             }
 
         return Response({
             "categories": stats,
-            "total_catalog_size": Book.objects.count(),
-            "in_stock_count": Book.objects.filter(stock__gt=0).count(),
+            "total_catalog_size": catalog_metrics['total_catalog_size'] or 0,
+            "in_stock_count": catalog_metrics['in_stock_count'] or 0,
         })
 
 
@@ -204,9 +215,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='buyer-summary', permission_classes=[permissions.IsAuthenticated])
     def buyer_summary(self, request):
         """
-        Dynamic analytics endpoint for the Buyer Dashboard:
-        - Resolves buyer safely: regular users can only see their own summary.
-        - Staff can view other accounts via ?username= or ?email=.
+        High-scale, database-aggregated analytics endpoint for the Buyer Dashboard.
+        Uses 100% database-level SQL pushdown aggregations instead of loading full querysets into Python memory.
         """
         is_admin_user = bool(request.user.is_staff or request.user.is_superuser)
         username_param = request.query_params.get('username') or request.query_params.get('customer_username')
@@ -222,77 +232,94 @@ class OrderViewSet(viewsets.ModelViewSet):
             username_param = None
             email_param = None
 
-        orders_qs = Order.objects.all().prefetch_related('items')
-        if target_user:
-            orders_qs = orders_qs.filter(Q(user=target_user) | Q(customer_email__iexact=target_user.email))
-        else:
-            orders_qs = Order.objects.none()
+        orders_qs = Order.objects.filter(
+            Q(user=target_user) | Q(customer_email__iexact=target_user.email)
+        ) if target_user else Order.objects.none()
 
-        total_orders = orders_qs.count()
-        total_spent = sum((o.total_amount for o in orders_qs), Decimal('0.00'))
+        cleared_order_filter = (
+            Q(payment_status='paid') |
+            Q(status='delivered') |
+            Q(payment_method__in=['bkash', 'nagad', 'rocket', 'BKASH', 'NAGAD', 'ROCKET'])
+        )
 
-        category_order_counts = {}
-        category_order_amounts = {}
-        category_cleared_counts = {}
-        category_cleared_amounts = {}
-        total_books_ordered = 0
-        total_books_cleared = 0
-        cleared_payment_amount = Decimal('0.00')
+        # 1. Headline buyer metrics aggregated at SQL level
+        order_metrics = orders_qs.aggregate(
+            total_orders=Count('id'),
+            total_spent=Sum('total_amount'),
+            cleared_payment_amount=Sum('total_amount', filter=cleared_order_filter),
+        )
 
-        payment_breakdown = {
+        total_orders = order_metrics['total_orders'] or 0
+        total_spent = order_metrics['total_spent'] or Decimal('0.00')
+        cleared_payment_amount = order_metrics['cleared_payment_amount'] or Decimal('0.00')
+
+        # 2. Aggregations over OrderItems belonging to this buyer's orders
+        buyer_items = OrderItem.objects.filter(order__in=orders_qs) if target_user else OrderItem.objects.none()
+
+        item_metrics = buyer_items.aggregate(
+            total_books_ordered=Sum('quantity'),
+            total_books_cleared=Sum('quantity', filter=Q(order__payment_status='paid') | Q(order__status='delivered') | Q(order__payment_method__in=['bkash', 'nagad', 'rocket', 'BKASH', 'NAGAD', 'ROCKET']))
+        )
+        total_books_ordered = item_metrics['total_books_ordered'] or 0
+        total_books_cleared = item_metrics['total_books_cleared'] or 0
+
+        # 3. Database Group-By for categories ordered
+        cat_order_rows = buyer_items.values('category').annotate(
+            count=Sum('quantity'),
+            total_amount=Sum('subtotal')
+        ).order_by('-count')
+
+        categories_ordered = [
+            {
+                'category': row['category'] or 'Literature & Novel',
+                'count': row['count'],
+                'total_amount': f"{(row['total_amount'] or Decimal('0.00')):.2f}",
+                'percentage': round((row['count'] / total_books_ordered * 100), 1) if total_books_ordered > 0 else 0
+            }
+            for row in cat_order_rows
+        ]
+
+        # 4. Database Group-By for cleared categories
+        cat_cleared_rows = buyer_items.filter(
+            Q(order__payment_status='paid') |
+            Q(order__status='delivered') |
+            Q(order__payment_method__in=['bkash', 'nagad', 'rocket', 'BKASH', 'NAGAD', 'ROCKET'])
+        ).values('category').annotate(
+            count=Sum('quantity'),
+            total_amount=Sum('subtotal')
+        ).order_by('-count')
+
+        cleared_categories = [
+            {
+                'category': row['category'] or 'Literature & Novel',
+                'count': row['count'],
+                'total_amount': f"{(row['total_amount'] or Decimal('0.00')):.2f}",
+                'percentage': round((row['count'] / total_books_cleared * 100), 1) if total_books_cleared > 0 else 0
+            }
+            for row in cat_cleared_rows
+        ]
+
+        # 5. Database Group-By for payment methods
+        payment_breakdown_map = {
             'bkash': {'label': 'bKash Mobile Banking', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': True},
             'nagad': {'label': 'Nagad Mobile Banking', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': True},
             'rocket': {'label': 'Rocket Mobile Banking', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': True},
             'cod': {'label': 'Cash on Delivery (COD)', 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': False},
         }
 
-        for order in orders_qs:
-            method = order.payment_method.lower()
-            if method not in payment_breakdown:
-                payment_breakdown[method] = {'label': method.upper(), 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': False}
+        pay_rows = orders_qs.values('payment_method').annotate(
+            orders_count=Count('id'),
+            total_amount=Sum('total_amount'),
+            books_count=Sum('items__quantity')
+        )
 
-            payment_breakdown[method]['orders'] += 1
-            payment_breakdown[method]['amount'] += order.total_amount
-
-            is_order_cleared = (order.payment_status == 'paid' or order.status == 'delivered' or method in ['bkash', 'nagad', 'rocket'])
-            if is_order_cleared:
-                cleared_payment_amount += order.total_amount
-
-            order_items = order.items.all()
-            for itm in order_items:
-                cat = itm.category or (itm.book.category if itm.book else 'Literature & Novel')
-                qty = itm.quantity
-                subtotal = itm.subtotal
-
-                total_books_ordered += qty
-                payment_breakdown[method]['books'] += qty
-                category_order_counts[cat] = category_order_counts.get(cat, 0) + qty
-                category_order_amounts[cat] = category_order_amounts.get(cat, Decimal('0.00')) + subtotal
-
-                if is_order_cleared:
-                    total_books_cleared += qty
-                    category_cleared_counts[cat] = category_cleared_counts.get(cat, 0) + qty
-                    category_cleared_amounts[cat] = category_cleared_amounts.get(cat, Decimal('0.00')) + subtotal
-
-        categories_ordered = [
-            {
-                'category': cat,
-                'count': count,
-                'total_amount': f"{category_order_amounts.get(cat, Decimal('0.00')):.2f}",
-                'percentage': round((count / total_books_ordered * 100), 1) if total_books_ordered > 0 else 0
-            }
-            for cat, count in sorted(category_order_counts.items(), key=lambda x: x[1], reverse=True)
-        ]
-
-        cleared_categories = [
-            {
-                'category': cat,
-                'count': count,
-                'total_amount': f"{category_cleared_amounts.get(cat, Decimal('0.00')):.2f}",
-                'percentage': round((count / total_books_cleared * 100), 1) if total_books_cleared > 0 else 0
-            }
-            for cat, count in sorted(category_cleared_counts.items(), key=lambda x: x[1], reverse=True)
-        ]
+        for r in pay_rows:
+            m = (r['payment_method'] or 'cod').lower()
+            if m not in payment_breakdown_map:
+                payment_breakdown_map[m] = {'label': m.upper(), 'orders': 0, 'books': 0, 'amount': Decimal('0.00'), 'cleared': False}
+            payment_breakdown_map[m]['orders'] = r['orders_count']
+            payment_breakdown_map[m]['books'] = r['books_count'] or 0
+            payment_breakdown_map[m]['amount'] = r['total_amount'] or Decimal('0.00')
 
         formatted_payment_breakdown = [
             {
@@ -303,10 +330,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'amount': f"{v['amount']:.2f}",
                 'is_cleared': v['cleared'],
             }
-            for k, v in payment_breakdown.items() if v['orders'] > 0
+            for k, v in payment_breakdown_map.items() if v['orders'] > 0
         ]
 
-        serialized_orders = OrderSerializer(orders_qs[:30], many=True).data
+        serialized_orders = OrderSerializer(orders_qs.prefetch_related('items')[:30], many=True).data
 
         return Response({
             'buyer_username': target_user.username if target_user else username_param or 'Guest Buyer',
@@ -325,8 +352,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='seller-summary', permission_classes=[permissions.IsAuthenticated])
     def seller_summary(self, request):
         """
-        Comprehensive portal endpoint for marketplace book sellers:
-        - Authenticated seller can only access their own dashboard.
+        Database-aggregated analytics endpoint for marketplace book sellers:
+        - Authenticated seller accesses their aggregated dashboard.
         - Staff can view other sellers via ?seller_username= or ?username=.
         """
         is_admin_user = bool(request.user.is_staff or request.user.is_superuser)
@@ -337,28 +364,43 @@ class OrderViewSet(viewsets.ModelViewSet):
         else:
             target_user = request.user
 
-        seller_books = Book.objects.filter(seller=target_user).order_by('-id') if target_user else Book.objects.none()
-        total_listed = seller_books.count()
-        active_stock = sum((b.stock for b in seller_books), 0)
-        low_stock_count = seller_books.filter(stock__lte=3, stock__gt=0).count()
-        out_of_stock_count = seller_books.filter(stock=0).count()
+        seller_books = Book.objects.filter(seller=target_user) if target_user else Book.objects.none()
 
-        # Incoming orders containing this seller's books
-        if target_user:
-            seller_items = OrderItem.objects.filter(book__seller=target_user).select_related('order', 'book').order_by('-id')
-        else:
-            seller_items = OrderItem.objects.none()
+        # Database aggregation over seller catalog metrics
+        book_metrics = seller_books.aggregate(
+            total_listed=Count('id'),
+            active_stock=Sum('stock'),
+            low_stock_count=Count('id', filter=Q(stock__lte=3, stock__gt=0)),
+            out_of_stock_count=Count('id', filter=Q(stock=0))
+        )
+
+        total_listed = book_metrics['total_listed'] or 0
+        active_stock = book_metrics['active_stock'] or 0
+        low_stock_count = book_metrics['low_stock_count'] or 0
+        out_of_stock_count = book_metrics['out_of_stock_count'] or 0
+
+        # Database aggregation over seller sales metrics
+        seller_items_qs = OrderItem.objects.filter(book__seller=target_user) if target_user else OrderItem.objects.none()
+
+        sales_metrics = seller_items_qs.aggregate(
+            total_sold_units=Sum('quantity'),
+            total_revenue=Sum('subtotal'),
+        )
+        total_sold_units = sales_metrics['total_sold_units'] or 0
+        total_revenue = sales_metrics['total_revenue'] or Decimal('0.00')
+
+        pending_fulfillments = Order.objects.filter(
+            items__book__seller=target_user,
+            status__in=['confirmed', 'processing']
+        ).distinct().count() if target_user else 0
+
+        # Incoming orders containing this seller's books (indexed slice)
+        seller_items = seller_items_qs.select_related('order', 'book').order_by('-id')[:100]
 
         # Group items by order
         orders_map = {}
-        total_revenue = Decimal('0.00')
-        total_sold_units = 0
-
         for itm in seller_items:
             ord_obj = itm.order
-            total_revenue += itm.subtotal
-            total_sold_units += itm.quantity
-
             if ord_obj.id not in orders_map:
                 orders_map[ord_obj.id] = {
                     'order_id': ord_obj.id,
@@ -390,15 +432,12 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Format orders list
         incoming_orders = []
-        pending_fulfillments = 0
         for ord_data in orders_map.values():
-            if ord_data['status'] in ['confirmed', 'processing']:
-                pending_fulfillments += 1
             ord_data['seller_subtotal'] = str(ord_data['seller_subtotal'])
             incoming_orders.append(ord_data)
 
         # Serialized seller books (limited to 50 for quick modal view)
-        serialized_books = BookSerializer(seller_books[:50], many=True).data
+        serialized_books = BookSerializer(seller_books.order_by('-id')[:50], many=True).data
 
         return Response({
             'seller_username': target_user.username if target_user else 'Unknown Seller',

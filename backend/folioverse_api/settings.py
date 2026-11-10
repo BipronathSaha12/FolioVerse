@@ -84,13 +84,25 @@ WSGI_APPLICATION = 'folioverse_api.wsgi.application'
 
 # PostgreSQL Database Configuration (Neon or local)
 DATABASE_URL = os.getenv('DATABASE_URL')
-if DATABASE_URL:
+
+import sys
+is_test_run = 'test' in sys.argv
+
+if is_test_run and not DATABASE_URL:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+elif DATABASE_URL:
+    is_postgres = DATABASE_URL.startswith('postgres://') or DATABASE_URL.startswith('postgresql://')
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
-            conn_max_age=600,
+            conn_max_age=600 if is_postgres else 0,
             conn_health_checks=True,
-            ssl_require=True,
+            ssl_require=is_postgres and not DEBUG,
         )
     }
 else:
@@ -174,6 +186,35 @@ REST_FRAMEWORK = {
         'contact_burst': '5/minute',
     },
 }
+
+# -----------------------------------------------------------------------------
+# Cache Configuration (Redis with LocMem fallback)
+# -----------------------------------------------------------------------------
+REDIS_URL = os.getenv('REDIS_URL', '').strip()
+if REDIS_URL and not is_test_run:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 100,
+                    'retry_on_timeout': True,
+                },
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+            },
+            'KEY_PREFIX': 'folioverse',
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'folioverse-locmem-cache',
+        }
+    }
 
 # -----------------------------------------------------------------------------
 # Layer 1: Network, Transport & Edge Security
