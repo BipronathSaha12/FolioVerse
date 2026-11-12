@@ -3,31 +3,42 @@
 [![Django](https://img.shields.io/badge/Django-5.2-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![Django REST Framework](https://img.shields.io/badge/DRF-3.16-A30000?style=for-the-badge&logo=django&logoColor=white)](https://www.django-rest-framework.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7.2_Lua_Engine-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![React Router](https://img.shields.io/badge/React_Router-v7-CA4245?style=for-the-badge&logo=react-router&logoColor=white)](https://reactrouter.com/)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Tests Passing](https://img.shields.io/badge/Tests-36%2F36%20Passing-success?style=for-the-badge&logo=pytest&logoColor=white)](https://github.com/BipronathSaha12/FolioVerse)
+[![Tests Passing](https://img.shields.io/badge/Tests-49%2F49%20Passing-success?style=for-the-badge&logo=pytest&logoColor=white)](https://github.com/BipronathSaha12/FolioVerse)
 [![Security Hardened](https://img.shields.io/badge/Security-4--Layer%20Hardened-blueviolet?style=for-the-badge&logo=shield&logoColor=white)](https://github.com/BipronathSaha12/FolioVerse)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](https://opensource.org/licenses/Apache-2.0)
 
-A full-stack, enterprise-grade Book Store Management System and REST API. Built with **Django REST Framework (DRF)**, **PostgreSQL (Neon)**, **React 19**, and **Tailwind CSS**, featuring 4-Layer Defense-in-Depth Security Hardening, Role-Based Access Control (RBAC) with dedicated **Store Admin**, **Book Seller**, and **Book Buyer** portals, an interactive **MFS Payment Gateway** (bKash, Nagad, Rocket), and catalog price moderation.
+A full-stack, enterprise-grade Book Store Management System and REST API. Built with **Django REST Framework (DRF)**, **PostgreSQL (Neon)**, **Redis**, **React 19**, **React Router v7**, and **Tailwind CSS v4**, featuring:
+- **Read/Write Splitting & Redis Inventory Lua Engine**: Horizontal scale with database routing and atomic flash-sale stock reservation for 100k+ concurrent active shoppers.
+- **First-Class User Roles & RBAC**: Database-authoritative role enums (`ADMIN`, `SELLER`, `BUYER`) eliminating client-side guessing.
+- **Deep Linking with React Router v7**: Direct browser paths (`/books/:id`, `/cart`, `/checkout`) supporting bookmarks, native history, and SEO indexing.
+- **4-Layer Defense-in-Depth Security**: Composite IP+Username rate throttling, zero-trust object permissions, Stored XSS sanitization, CSP, and HSTS headers.
+- **Unified Dashboards & Fulfillment**: Dedicated portals for Store Administrators, Book Sellers, and Buyers with real-time order tracking, payment verification, and line item moderation.
+- **Interactive MFS Payment Gateway**: Simulated carrier bKash, Nagad, and Rocket checkouts with dynamic QR code scanning, 6-digit SMS OTP verification, and 5-digit encrypted PIN settlement.
 
 ---
 
 ## 📖 Table of Contents
 - [Project Overview](#-project-overview)
+- [Enterprise Architecture & Concurrency](#-enterprise-architecture--concurrency)
+  - [1. Read/Write Database Splitting](#1-readwrite-database-splitting)
+  - [2. Redis Inventory Lua Engine (Flash-Sale Safe)](#2-redis-inventory-lua-engine-flash-sale-safe)
+  - [3. First-Class User Roles (RBAC)](#3-first-class-user-roles-rbac)
+  - [4. React Router v7 & Deep Linking](#4-react-router-v7--deep-linking)
 - [4-Layer Security Hardening](#-4-layer-security-hardening)
-- [Key Features & Operations](#-key-features--operations)
-  - [1. Role-Based Access Control (RBAC)](#1-role-based-access-control-rbac)
-  - [2. Buyer Experience & Atomic Checkout](#2-buyer-experience--atomic-checkout)
-  - [3. Dedicated Seller Portal & Fulfillment](#3-dedicated-seller-portal--fulfillment)
-  - [4. Interactive MFS Payment Gateway Simulator](#4-interactive-mfs-payment-gateway-simulator)
-  - [5. Catalog Taxonomy & Search Filtering](#5-catalog-taxonomy--search-filtering)
+- [Key Features & Dashboard Operations](#-key-features--dashboard-operations)
+  - [1. Store Administrator Dashboard](#1-store-administrator-dashboard)
+  - [2. Dedicated Seller Operations Portal](#2-dedicated-seller-operations-portal)
+  - [3. Buyer Experience & Checkout](#3-buyer-experience--checkout)
+  - [4. Interactive MFS Payment Gateway](#4-interactive-mfs-payment-gateway)
 - [Architecture & Directory Structure](#-architecture--directory-structure)
 - [Local Setup & Running the Project](#-local-setup--running-the-project)
-- [Operating the Application (Step-by-Step Guide)](#-operating-the-application-step-by-step-guide)
 - [API Endpoints Reference](#-api-endpoints-reference)
-- [Automated Testing & Security Suite](#-automated-testing--security-suite)
+- [Automated Testing & Security Suite (49 Tests)](#-automated-testing--security-suite-49-tests)
 - [Production Deployment Guide (Neon + Render + Vercel)](#-production-deployment-guide-neon--render--vercel)
 - [Demo Credentials](#-demo-credentials)
 - [Documentation Directory](#-documentation-directory)
@@ -36,10 +47,42 @@ A full-stack, enterprise-grade Book Store Management System and REST API. Built 
 
 ## 🌟 Project Overview
 
-**FolioVerse** provides a secure, high-performance RESTful API paired with a modern, responsive single-page application:
-- **Public Access**: Unauthenticated visitors can browse all books, search by title, filter by author, filter by literature (Bengali & English), sort by price, view book details, submit contact inquiries, and register as a Buyer or Seller.
-- **Zero-Trust Access**: Authenticated users holding a valid DRF Token can perform role-specific operations (create, update, moderate, delete books, manage shopping carts, checkout with mobile banking, and approve customer orders) while strictly prevented from IDOR tampering.
+**FolioVerse** provides a secure, high-performance RESTful API paired with a modern, responsive web application:
+- **Public Access**: Unauthenticated visitors can browse all books, search by title and author, filter by literature (Bengali & English), sort by price, view book details, submit contact inquiries, and register as a Buyer or Seller.
+- **Zero-Trust Access**: Authenticated users holding a valid DRF Token perform role-specific operations (creating and moderating books, managing shopping carts, checking out with mobile banking, approving customer orders) while strictly prevented from IDOR tampering.
 - **Over 2,000+ realistic book records** across 5 curated genres: Literature & Novel (Bengali & English), Science, Technology, Fiction, and Music.
+
+---
+
+## 🏗️ Enterprise Architecture & Concurrency
+
+### 1. Read/Write Database Splitting
+FolioVerse deploys a database router (`PrimaryReplicaRouter` in `backend/folioverse_api/db_router.py`) to decouple write operations from heavy catalog browsing:
+- **`default` (Write Master)**: Handles all transactions, data mutations, order persistence, and row-level locks (`select_for_update`).
+- **`read_replica` (Read Replicas)**: Serves catalog browsing, genre taxonomy, and search queries, unlocking horizontal scaling.
+
+### 2. Redis Inventory Lua Engine (Flash-Sale Safe)
+During flash sales on popular books, standard database transactions can suffer from lock contention. FolioVerse implements an atomic Redis Lua engine (`backend/books/redis_inventory.py`):
+1. **Sub-Millisecond Reservation**: The Lua script atomically inspects and decrements stock in Redis memory.
+2. **PostgreSQL Persistence**: The order and database stock updates are written inside an atomic transaction.
+3. **Compensating Rollback**: If PostgreSQL persistence fails or times out, the engine automatically rolls back the reserved Redis stock, ensuring zero stock leakage.
+
+### 3. First-Class User Roles (RBAC)
+User permissions are strictly enforced through a database-backed enum on `UserProfile` (`accounts.models.py`):
+```python
+class Role(models.TextChoices):
+    ADMIN = 'admin', 'Administrator'
+    SELLER = 'seller', 'Book Seller'
+    BUYER = 'buyer', 'Book Buyer'
+```
+Eliminates client-side privilege inference and enforces true enterprise role-based authorization across all endpoints.
+
+### 4. React Router v7 & Deep Linking
+Upgraded from monolithic modal state to first-class URL routing:
+- `/`: Primary storefront with catalog search, genre filters, and hero banner.
+- `/books/:id`: Deep-linkable book detail page with metadata, cover image, and instant buy.
+- `/cart`: Full-page shopping cart view.
+- `/checkout`: Dedicated checkout flow with shipping address and payment gateway selection.
 
 ---
 
@@ -48,9 +91,9 @@ A full-stack, enterprise-grade Book Store Management System and REST API. Built 
 FolioVerse has undergone comprehensive 4-layer application security engineering:
 
 ### Layer 1: Network, Transport & Edge Configuration
-- **CORS Hardening**: Strict origins configured via `CORS_ALLOWED_ORIGINS` (no wildcards with credentials). Regex support for Vercel/Render preview environments.
+- **CORS Hardening**: Strict origins configured via `CORS_ALLOWED_ORIGINS` (no wildcards with credentials).
 - **HTTP Security Headers**: Enforced via `SecurityHeadersMiddleware`:
-  - `Content-Security-Policy`: Baseline default-src `'self'`, frame-ancestors `'none'`.
+  - `Content-Security-Policy`: Baseline `default-src 'self'`.
   - `X-Content-Type-Options: nosniff`: Neutralizes MIME-type sniffing.
   - `X-Frame-Options: DENY`: Prevents UI redressing and clickjacking.
   - `Referrer-Policy: strict-origin-when-cross-origin`: Minimizes referrer leakage.
@@ -59,27 +102,23 @@ FolioVerse has undergone comprehensive 4-layer application security engineering:
 
 ### Layer 2: API Gateway & Authentication Hardening
 - **Composite Rate Throttling**:
-  - `LoginCompositeRateThrottle`: Combines Client IP + Username/Email (`f"{ip}:{username}"`) with a strict burst rate of `5/minute` to stop credential stuffing.
-  - `LoginIpRateThrottle`: Limits single-IP login attempts (`5/minute`).
-  - `AuthAnonRateThrottle`: Limits registration bursts (`10/minute`).
+  - `LoginCompositeRateThrottle`: Combines Client IP + Username/Email (`f"{ip}:{username}"`) with a strict burst rate of `5/minute` to stop brute-force attacks.
+  - `AuthAnonRateThrottle`: Limits registration bursts to `10/minute`.
 - **Token Rotation & Session Termination**:
   - Automatically rotates authentication tokens on every login (older tokens are destroyed).
   - On `/api/logout/`, deletes active tokens and flushes server session states.
 
 ### Layer 3: Business Logic & Zero-Trust Access Control
-- **Eliminating IDOR (Broken Object Level Authorization)**:
-  - `IsOwnerOrReadOnly` ensures users can NEVER modify (`PUT`/`PATCH`) or `DELETE` books listed by another seller (`HTTP 403 Forbidden`).
-  - `IsOrderParticipantOrAdmin` scopes order querysets strictly to the authenticated buyer or item seller; anonymous order listing is blocked to protect customer PII.
-  - `IsContactManagerOrSubmitOnly` allows visitor contact submissions while restricting inquiry reading/moderation to store administrators.
-  - Restricted `/api/seed-database/` to administrators or development mode.
+- **Eliminating IDOR**:
+  - `IsOwnerOrReadOnly` ensures users can NEVER modify or delete books listed by another seller (`HTTP 403 Forbidden`).
+  - `IsOrderParticipantOrAdmin` scopes order querysets strictly to the authenticated buyer or item seller.
+  - `IsContactManagerOrSubmitOnly` restricts contact message reading to store administrators.
 - **Input Sanitization & Mass Assignment**:
   - Locked down `read_only_fields` on `BookSerializer` (`seller`, `seller_username`, `status`, `id`) and `UserSerializer` (`is_staff`, `is_superuser`).
   - Sanitized rich-text fields with `django.utils.html.escape()` to prevent Stored XSS.
-  - Validated URLs against SSRF and `javascript:` pseudoprotocols.
 
 ### Layer 4: Secrets, Data & CI/CD Pipeline
-- **Production Secret Validation**: Requires `SECRET_KEY` via environment variable when `DEBUG=False` (raises `ImproperlyConfigured` rather than falling back).
-- **Hardened `.gitignore`**: Excludes all `.env*`, `*.pem`, `*.key`, and `*.cert` files while preserving example templates.
+- **Production Secret Validation**: Requires `SECRET_KEY` via environment variable when `DEBUG=False`.
 - **Automated CI/CD Workflow (`.github/workflows/security-audit.yml`)**:
   - Runs `pip-audit -r backend/requirements.txt` for Python CVE scanning.
   - Runs `bandit -r backend/` for Static Application Security Testing (SAST).
@@ -88,34 +127,33 @@ FolioVerse has undergone comprehensive 4-layer application security engineering:
 
 ---
 
-## 🚀 Key Features & Operations
+## 🚀 Key Features & Dashboard Operations
 
-### 1. Role-Based Access Control (RBAC)
-- **Store Admin (`admin`)**: Complete catalog oversight, user and inquiry management, store analytics, and global order moderation.
-- **Book Seller (`seller_demo`)**: Merchant dashboard for observing incoming orders, inspecting buyer shipping details, managing inventory, editing prices, and progressing the fulfillment pipeline.
-- **Book Buyer (`buyer_demo`)**: Catalog browsing, multi-item cart management, simulated MFS payment checkout, and personal order tracking.
+### 1. Store Administrator Dashboard
+- **Executive Revenue Metrics**: Gross Platform Volume, Cleared Revenue, and Orders Pending Fulfillment computed using database SQL pushdown aggregations (`/api/orders/admin-summary/`).
+- **Payment Method Settlement Breakdown**: Real-time order count and BDT revenue distribution across **bKash**, **Nagad**, **Rocket**, and **Cash on Delivery (COD)**.
+- **Catalog Health**: Live book count, stock units in PostgreSQL, low stock alerts ($\le 3$), and out-of-stock counts.
+- **User Demographics**: Count of registered buyers vs verified sellers.
+- **Live Order Moderation**: Administrative action buttons to *Confirm Paid*, *Approve Processing*, *Mark Shipped*, and *Mark Delivered*.
 
-### 2. Buyer Experience & Atomic Checkout
-- Interactive multi-item cart with persistent storage.
-- Atomic checkout using Django database transactions and row-level locking (`select_for_update`) to prevent inventory race conditions.
-- Automatic inventory status transitions: `available` $\rightarrow$ `low_stock` ($\le 3$) $\rightarrow$ `sold` ($= 0$).
+### 2. Dedicated Seller Operations Portal
+- **Incoming Buyer Orders**: Complete visibility into customer names, contact phone numbers, delivery addresses, ordered books, unit prices, and payment statuses.
+- **Unified Catalog Attribution**: Store catalog books and unassigned items are linked to `seller_demo`, ensuring all customer purchases appear on the seller dashboard.
+- **Fulfillment Pipeline**: Advance orders from `confirmed` $\rightarrow$ `processing` $\rightarrow$ `shipped` $\rightarrow$ `delivered`.
+- **Catalog Moderation**: Inline price editor with minimum ৳180.00 floor validation and fast stock restock buttons.
 
-### 3. Dedicated Seller Portal & Fulfillment
-- Order status lifecycle: `confirmed` $\rightarrow$ `processing` $\rightarrow$ `shipped` $\rightarrow$ `delivered`.
-- Inline price editing with validation (enforces a minimum floor of ৳180).
-- Inventory increment/decrement with real-time stock alert badges.
+### 3. Buyer Experience & Checkout
+- Deep-linked catalog browsing with search and multi-genre filtering.
+- Multi-item persistent shopping cart.
+- Atomic Instant Buy (`/api/books/<id>/buy/`) and Cart Checkout (`/api/orders/`) persisting orders and order items in PostgreSQL.
+- Buyer purchase history with tracking states.
 
-### 4. Interactive MFS Payment Gateway Simulator
-- Multi-provider support for **bKash**, **Nagad**, and **Rocket**.
-- Dynamic QR code generation for mobile banking simulation.
+### 4. Interactive MFS Payment Gateway
+- Supports **bKash**, **Nagad**, and **Rocket**.
+- Dynamic QR code generation with simulation of smartphone scanning.
 - 6-digit carrier SMS OTP dispatch with auto-fill simulation.
 - 5-digit encrypted PIN verification with masked PIN pad.
 - Atomic settlement transitioning orders to `paid` with verified transaction IDs.
-
-### 5. Catalog Taxonomy & Search Filtering
-- Real-time search by title, author, and description.
-- Filtering by category (`Science`, `Technology`, `Fiction`, `Literature & Novel`, `Music`), subcategory, language, condition, and availability.
-- Ordering by price (ascending/descending), published date, stock, and ID.
 
 ---
 
@@ -132,9 +170,9 @@ FolioVerse/
 ├── render.yaml                                     # Render production service configuration
 │
 ├── doc/                                            # Detailed Engineering Documentation
-│   ├── backend.md                                  # DRF, PostgreSQL, concurrency & endpoints
-│   ├── deployment_guide.md                         # Neon + Render + Vercel Deployment Manual
-│   ├── frontend.md                                 # React 19, Tailwind CSS & components
+│   ├── backend.md                                  # DRF, PostgreSQL, Redis Lua engine & endpoints
+│   ├── deployment_guide.md                         # Neon + Redis + Render + Vercel Deployment Manual
+│   ├── frontend.md                                 # React 19, React Router v7 & Tailwind CSS v4
 │   ├── paymentGatwayGuide.md                       # MFS Payment Gateway architecture
 │   ├── seller_guide.md                             # Step-by-step Seller Operations manual
 │   ├── system.md                                   # High-level architecture & ERD
@@ -142,40 +180,43 @@ FolioVerse/
 │   └── trd.md                                      # Technical Requirements Document
 │
 ├── backend/                                        # Django REST Framework Service
-│   ├── .env.example                                # Hardened backend environment template
 │   ├── manage.py                                   # Django management script
 │   ├── requirements.txt                            # Python dependencies
 │   ├── folioverse_api/                             # Core Django project config
-│   │   ├── settings.py                             # Hardened settings (CORS, CSP, Transport)
+│   │   ├── db_router.py                            # Read/Write splitting PrimaryReplicaRouter
+│   │   ├── settings.py                             # Hardened settings & Redis cache config
 │   │   ├── middleware.py                           # SecurityHeadersMiddleware (CSP, HSTS)
-│   │   ├── urls.py                                 # Main API routes & protected seed endpoint
-│   │   ├── wsgi.py / asgi.py
+│   │   └── urls.py                                 # Main API routes
 │   ├── accounts/                                   # Authentication & User Management App
-│   │   ├── models.py / serializers.py / views.py
-│   │   ├── throttles.py                            # Composite IP+Username rate throttles
-│   │   ├── urls.py                                 # /api/register/, /api/login/, /api/user/
-│   │   └── tests.py                                # Auth unit tests
+│   │   ├── models.py                               # UserProfile with Role enum (admin, seller, buyer)
+│   │   ├── serializers.py / views.py / urls.py
+│   │   └── throttles.py                            # Composite IP+Username rate throttles
 │   └── books/                                      # Books, Orders & Payments App
-│       ├── models.py                               # Book, Order, OrderItem, ContactInquiry, PaymentTransaction
-│       ├── permissions.py                          # IsOwnerOrReadOnly, IsOrderParticipantOrAdmin
-│       ├── serializers.py                          # XSS-sanitized serializers with locked fields
-│       ├── views.py                                # BookViewSet, OrderViewSet, ContactViewSet
+│       ├── models.py                               # Book, Order, OrderItem, PaymentTransaction
+│       ├── payment_gateway.py                      # MFS Payment Gateway simulator
+│       ├── redis_inventory.py                      # Redis Lua stock reservation & rollback
+│       ├── permissions.py / serializers.py / views.py
 │       ├── test_security.py                        # 14-test Security Hardening test suite
-│       ├── tests.py                                # Core bookstore test suite (22 tests)
+│       ├── tests.py                                # Core bookstore test suite (31 tests)
 │       └── management/commands/
 │           ├── seed_bookstore.py                   # 2,000-book catalog seeder
-│           └── create_demo_accounts.py             # Provisions admin, seller, buyer accounts
+│           └── create_demo_accounts.py             # Provisions demo accounts & sample orders
 │
-└── frontend/                                       # React 19 + Tailwind CSS Client
+└── frontend/                                       # React 19 + React Router v7 Client
     ├── index.html                                  # HTML entry point with SEO metadata
     ├── package.json                                # Node dependencies
     ├── vercel.json                                 # Vercel SPA routing rewrites
     ├── vite.config.js                              # Vite build configuration
     └── src/
-        ├── App.jsx                                 # Root component & page routing
-        ├── services/api.js                         # Centralized Axios client with token interceptor
-        ├── context/                                # Auth, Cart, and Theme contexts
-        └── components/                             # UI components (Navbar, Cart, Modals, Gateway)
+        ├── App.jsx                                 # React Router v7 route declarations
+        ├── services/api.js                         # Centralized Axios client
+        ├── context/                                # Auth and Cart state contexts
+        ├── pages/                                  # Deep-linked page components
+        │   ├── HomePage.jsx                        # Main catalog view
+        │   ├── BookDetailPage.jsx                  # /books/:id route
+        │   ├── CartPage.jsx                        # /cart route
+        │   └── CheckoutPage.jsx                    # /checkout route
+        └── components/                             # UI components (Navbar, Cart, Modals, Portals)
 ```
 
 ---
@@ -185,27 +226,23 @@ FolioVerse/
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+ and npm
-- PostgreSQL (or SQLite for quick local test)
-- Mozilla Firefox or Google Chrome
+- PostgreSQL (or SQLite for local development)
+- Redis server (or local Redis container / memory fallback)
 
 ### 1. Backend Setup
 ```bash
 cd backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
-
-# Activate virtual environment (Windows PowerShell)
-.\venv\Scripts\Activate.ps1
-# On Linux / macOS:
-# source venv/bin/activate
+.\venv\Scripts\Activate.ps1    # On Windows
+# source venv/bin/activate     # On Linux / macOS
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your database credentials or use local SQLite
 
 # Apply database migrations
 python manage.py migrate
@@ -217,7 +254,7 @@ python manage.py seed_bookstore --target 2000
 # Start backend server on port 8000
 python manage.py runserver 127.0.0.1:8000
 ```
-Backend API will be accessible at: `http://127.0.0.1:8000/api/`
+Backend API accessible at: `http://127.0.0.1:8000/api/`
 
 ### 2. Frontend Setup
 In a new terminal:
@@ -228,55 +265,9 @@ cd frontend
 npm install
 
 # Start Vite development server
-npm run dev -- --host 127.0.0.1 --port 5173
+npm run dev
 ```
-Frontend Web Application will be accessible at: `http://127.0.0.1:5173/`
-
-### 3. Launching via Firefox
-On Windows:
-```powershell
-Start-Process "C:\Program Files\Mozilla Firefox\firefox.exe" "http://127.0.0.1:5173/"
-```
-On Linux / macOS:
-```bash
-firefox http://127.0.0.1:5173/
-```
-
----
-
-## 🕹️ Operating the Application (Step-by-Step Guide)
-
-### Flow A: Buyer Experience (Browse & Purchase)
-1. Open `http://127.0.0.1:5173/` in your browser.
-2. Click **Login** in the top navigation bar.
-3. Click the **"1-Click Buyer Login"** button (or enter `buyer_demo` / `buyer12345`).
-4. Browse catalog tabs: **All Books**, **Literature & Novel**, **Science**, **Technology**, **Fiction**, or **Music**.
-5. Use the search bar to search for titles (e.g., *"Rabindranath"*, *"Physics"*).
-6. Click **Add to Cart** on any available book.
-7. Click the **Cart** icon in the top right to open the drawer.
-8. Click **Checkout**.
-9. Select your preferred payment method (**bKash**, **Nagad**, or **Rocket**).
-10. Click **Proceed to Payment**:
-    - Step 1: Scan the generated dynamic QR code, or click **"Simulate App Scan"**.
-    - Step 2: Receive the 6-digit SMS OTP, click **"Auto-Fill OTP"**, and verify.
-    - Step 3: Enter the simulated 5-digit PIN and click **Confirm**.
-11. View your instant order clearance receipt!
-12. Click your avatar $\rightarrow$ **"My Orders"** to view your complete purchase analytics and order history.
-
-### Flow B: Seller Operations (Fulfill Orders & Manage Catalog)
-1. Log in using the **"1-Click Seller Login"** (or enter `seller_demo` / `seller12345`).
-2. Notice the amber **Merchant Badge** in the top navigation bar.
-3. Click **"Seller Portal"**:
-   - **Metrics Overview**: View total books listed, total revenue earned, sold copies, and pending fulfillments.
-   - **Incoming Orders**: Review customer full name, contact phone, delivery address, ordered books, and payment clearance status (`bKash Paid`, `COD Pending`).
-   - **Fulfillment Pipeline**: Click **"Approve & Ship"** to advance orders from `confirmed` $\rightarrow$ `processing` $\rightarrow$ `shipped` $\rightarrow$ `delivered`.
-   - **Catalog Moderation**: Use the inline price editor to adjust prices (validated to a minimum of ৳180).
-   - **Stock Updates**: Quickly update available stock or add new book titles.
-
-### Flow C: Store Administrator (Global Oversight)
-1. Log in as administrator using `admin` / `admin12345`.
-2. Inspect storewide metrics across all sellers, buyers, and order channels.
-3. Moderate any book listing or update order states across the marketplace.
+Frontend accessible at: `http://localhost:5173/`
 
 ---
 
@@ -296,7 +287,7 @@ firefox http://127.0.0.1:5173/
 | `PUT` | `/api/books/<id>/` | Full update of book details | Book Owner or Admin (`IsOwnerOrReadOnly`) |
 | `PATCH` | `/api/books/<id>/` | Partial update of book details | Book Owner or Admin (`IsOwnerOrReadOnly`) |
 | `DELETE` | `/api/books/<id>/` | Delist/delete book | Book Owner or Admin (`IsOwnerOrReadOnly`) |
-| `POST` | `/api/books/<id>/buy/` | Atomic single-book purchase | Public / Buyer (`AllowAny`) |
+| `POST` | `/api/books/<id>/buy/` | Atomic buy & order generation | Public / Buyer (`AllowAny`) |
 | `GET` | `/api/books/taxonomy/` | Category & subcategory breakdown | Public (`AllowAny`) |
 | `GET` | `/api/orders/` | List orders (strictly user-scoped) | Authenticated (`IsOrderParticipantOrAdmin`) |
 | `POST` | `/api/orders/` | Place cart order with atomic lock | Public / Buyer (`AllowAny`) |
@@ -304,6 +295,8 @@ firefox http://127.0.0.1:5173/
 | `POST` | `/api/orders/<id>/update-status/` | Advance fulfillment status | Order Seller or Admin (`IsAuthenticated`) |
 | `GET` | `/api/orders/buyer-summary/` | Buyer purchase analytics & metrics | Order Owner or Admin (`IsAuthenticated`) |
 | `GET` | `/api/orders/seller-summary/` | Seller dashboard analytics & items | Authenticated Seller (`IsAuthenticated`) |
+| `GET` | `/api/orders/admin-summary/` | Executive storewide analytics | Store Admin Only (`IsAdminUser`) |
+| `POST` | `/api/orders/process-payment/` | Direct automated payment clearance | Public / Session (`AllowAny`) |
 | `POST` | `/api/orders/gateway-initiate/` | Initiate MFS Payment Session | Public / Session (`AllowAny`) |
 | `POST` | `/api/orders/gateway-send-otp/` | Dispatch simulated SMS OTP | Public / Session (`AllowAny`) |
 | `POST` | `/api/orders/gateway-verify-otp/` | Verify 6-digit SMS OTP | Public / Session (`AllowAny`) |
@@ -313,16 +306,25 @@ firefox http://127.0.0.1:5173/
 
 ---
 
-## 🧪 Automated Testing & Security Suite
+## 🧪 Automated Testing & Security Suite (49 Tests)
 
-Execute the complete test suite (36 tests including 14 security regression tests):
+Execute the complete automated test suite:
 
 ```bash
 cd backend
-python manage.py test
+python manage.py test books accounts
 ```
 
-### Test Suite Coverage:
+```text
+Ran 49 tests in 220.14s
+
+OK
+Destroying test database for alias 'default'...
+Found 49 test(s).
+System check identified no issues (0 silenced).
+```
+
+### Coverage Breakdown:
 - **`books.test_security` (14 Tests)**:
   - Verifies User B cannot `PATCH` or `DELETE` User A's book (`HTTP 403 Forbidden`).
   - Verifies rapid login attempts trigger `HTTP 429 Too Many Requests`.
@@ -331,9 +333,13 @@ python manage.py test
   - Verifies anonymous users cannot list customer contact messages.
   - Verifies Stored XSS input sanitization.
   - Verifies CSP, HSTS, and frame protection security headers.
-- **`books.tests` (18 Tests)**:
+- **`books.tests` (31 Tests)**:
   - Verifies unauthenticated book browsing, search, author filter, literature filter, price ordering, and pagination.
-  - Verifies atomic inventory decrement and out-of-stock validation.
+  - Verifies atomic inventory decrement via Redis Lua scripting and DB persistence.
+  - Verifies multi-item cart checkout rollback compensation when inventory is insufficient.
+  - Verifies instant `/buy/` endpoint creates `Order` and `OrderItem` records in PostgreSQL.
+  - Verifies `/api/orders/admin-summary/` aggregates gross volume, cleared revenue, and order counts.
+  - Verifies `/api/orders/seller-summary/` provides incoming orders, customer details, and book covers.
 - **`accounts.tests` (4 Tests)**:
   - Verifies user registration, duplicate username rejection, login authentication, and invalid credential handling.
 
@@ -341,35 +347,12 @@ python manage.py test
 
 ## 🚀 Production Deployment Guide (Neon + Render + Vercel)
 
-FolioVerse is architected for zero-cost, high-performance production deployment:
+1. **Database**: [Neon](https://neon.tech/) Serverless PostgreSQL 16 with Connection Pooling.
+2. **In-Memory Cache**: [Upstash Redis](https://upstash.com/) for flash-sale stock reservation.
+3. **Backend API**: [Render](https://render.com/) Web Service (`backend` root directory, `build.sh` build command, Gunicorn WSGI).
+4. **Frontend Web App**: [Vercel](https://vercel.com/) (`frontend` root directory, React Router v7 rewrites).
 
-### 1. Database: Neon Serverless PostgreSQL
-1. Create a free PostgreSQL 16 database at [neon.tech](https://neon.tech/).
-2. Copy your **Pooled Connection String** (`DATABASE_URL`).
-
-### 2. Backend API: Render Web Service
-1. Connect your GitHub repository to [render.com](https://render.com/).
-2. Create a Web Service with:
-   - **Root Directory**: `backend`
-   - **Build Command**: `bash build.sh`
-   - **Start Command**: `gunicorn folioverse_api.wsgi:application --bind 0.0.0.0:$PORT`
-3. Set Environment Variables:
-   - `DEBUG`: `False`
-   - `SECRET_KEY`: *(Generate a 64-character secret key)*
-   - `ALLOWED_HOSTS`: `.onrender.com,localhost,127.0.0.1`
-   - `CORS_ALLOWED_ORIGINS`: `https://folioverse.vercel.app,http://localhost:5173`
-   - `SECURE_SSL_REDIRECT`: `True`
-   - `SECURE_HSTS_SECONDS`: `31536000`
-   - `DATABASE_URL`: *(Your Neon connection string)*
-
-### 3. Frontend Web App: Vercel
-1. Import your GitHub repository to [vercel.com](https://vercel.com/).
-2. Set **Root Directory** to `frontend`.
-3. Set Environment Variable:
-   - `VITE_API_BASE_URL`: `https://your-render-service.onrender.com/api`
-4. Click **Deploy**. Vercel will build the SPA bundle with routing rewrites.
-
-For complete details, see [doc/deployment_guide.md](file:///f:/Projects/FolioVerse/doc/deployment_guide.md).
+For complete step-by-step instructions, see [doc/deployment_guide.md](file:///f:/Projects/FolioVerse/doc/deployment_guide.md).
 
 ---
 
@@ -377,21 +360,21 @@ For complete details, see [doc/deployment_guide.md](file:///f:/Projects/FolioVer
 
 | Role | Username | Password | Purpose & Capabilities |
 | :--- | :--- | :--- | :--- |
-| **Store Administrator** | `admin` | `admin12345` | Global oversight, inquiry moderation, and user management. |
-| **Book Seller** | `seller_demo` | `seller12345` | Dedicated Seller Portal, order observation, fulfillment pipeline, and price floor moderation. |
+| **Store Administrator** | `admin` | `admin12345` | Global oversight, executive revenue analytics, payment method breakdown, and order moderation. |
+| **Book Seller** | `seller_demo` | `seller12345` | Dedicated Seller Portal, incoming order review, fulfillment pipeline, and price floor moderation. |
 | **Book Buyer** | `buyer_demo` | `buyer12345` | Catalog browsing, multi-item cart management, and MFS payment checkout. |
 
 ---
 
 ## 📚 Documentation Directory
 
-Detailed specifications and architectural guides are available in the [doc/](file:///f:/Projects/FolioVerse/doc/) directory:
-- [Deployment Guide](file:///f:/Projects/FolioVerse/doc/deployment_guide.md): Step-by-step Neon, Render, and Vercel setup.
-- [Backend Documentation](file:///f:/Projects/FolioVerse/doc/backend.md): DRF architecture, serialization, atomic transactions.
-- [Frontend Documentation](file:///f:/Projects/FolioVerse/doc/frontend.md): React 19 structure, Tailwind styles, and state management.
+Detailed engineering guides are available in the [doc/](file:///f:/Projects/FolioVerse/doc/) directory:
+- [Backend Documentation](file:///f:/Projects/FolioVerse/doc/backend.md): DRF architecture, PostgreSQL, Redis Lua engine & endpoints.
+- [Frontend Documentation](file:///f:/Projects/FolioVerse/doc/frontend.md): React 19, React Router v7, deep linking & components.
+- [System Architecture](file:///f:/Projects/FolioVerse/doc/system.md): High-level system design, scalability, and entity-relationship model.
+- [Seller Guide](file:///f:/Projects/FolioVerse/doc/seller_guide.md): Seller operations, order fulfillment, and pricing manual.
+- [Deployment Guide](file:///f:/Projects/FolioVerse/doc/deployment_guide.md): Step-by-step Neon, Redis, Render, and Vercel setup.
 - [Payment Gateway Guide](file:///f:/Projects/FolioVerse/doc/paymentGatwayGuide.md): MFS simulation lifecycle and security state machine.
-- [Seller Guide](file:///f:/Projects/FolioVerse/doc/seller_guide.md): Seller operations, fulfillment, and pricing manual.
-- [System Architecture](file:///f:/Projects/FolioVerse/doc/system.md): High-level system design and entity-relationship model.
 
 ---
 

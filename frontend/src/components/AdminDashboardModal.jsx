@@ -81,30 +81,30 @@ export const AdminDashboardModal = ({
     }
   }, [isOpen]);
 
-  const [adminSummary, setAdminSummary] = useState(null);
-  const [adminSummaryLoading, setAdminSummaryLoading] = useState(false);
-  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+    const [adminSummary, setAdminSummary] = useState(null);
+    const [adminSummaryLoading, setAdminSummaryLoading] = useState(false);
+    const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
-  // Fetch executive admin summary and live orders
-  const loadAdminSummary = async () => {
-    setAdminSummaryLoading(true);
-    try {
-      const res = await orderService.getAdminSummary();
-      setAdminSummary(res.data);
-      if (res.data?.recent_orders) {
-        setLiveOrders(res.data.recent_orders);
+    // Fetch executive admin summary and live orders
+    const loadAdminSummary = async () => {
+      setAdminSummaryLoading(true);
+      try {
+        const res = await orderService.getAdminSummary();
+        setAdminSummary(res.data);
+        if (res.data?.recent_orders) {
+          setLiveOrders(res.data.recent_orders);
+        }
+      } catch (err) {
+        console.warn('Failed to load admin summary:', err);
+      } finally {
+        setAdminSummaryLoading(false);
       }
-    } catch (err) {
-      console.warn('Failed to load admin summary:', err);
-    } finally {
-      setAdminSummaryLoading(false);
-    }
-  };
+    };
 
-  useEffect(() => {
-    if (isOpen) {
-      loadAdminSummary();
-    }
+    useEffect(() => {
+        if (isOpen) {
+          loadAdminSummary();
+        }
   }, [isOpen]);
 
   // Order status update action for store administrators
@@ -237,41 +237,37 @@ export const AdminDashboardModal = ({
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-3 border-b border-slate-800 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 ${
-              activeTab === 'overview'
+            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 ${activeTab === 'overview'
                 ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold'
                 : 'text-slate-400 hover:text-white bg-slate-950/60'
-            }`}
+              }`}
           >
             Overview & Metrics
           </button>
           <button
             onClick={() => setActiveTab('inventory')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 ${
-              activeTab === 'inventory'
+            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 ${activeTab === 'inventory'
                 ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold'
                 : 'text-slate-400 hover:text-white bg-slate-950/60'
-            }`}
+              }`}
           >
             Inventory Management ({totalBooksCount.toLocaleString()})
           </button>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 ${
-              activeTab === 'orders'
+            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 ${activeTab === 'orders'
                 ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold'
                 : 'text-slate-400 hover:text-white bg-slate-950/60'
-            }`}
+              }`}
           >
             Orders & Transactions
           </button>
           <button
             onClick={() => setActiveTab('inquiries')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 ${
-              activeTab === 'inquiries'
+            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 ${activeTab === 'inquiries'
                 ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold'
                 : 'text-slate-400 hover:text-white bg-slate-950/60'
-            }`}
+              }`}
           >
             <Mail className="w-3.5 h-3.5 text-emerald-400" />
             <span>Messages & Inquiries ({inquiries.length})</span>
@@ -552,13 +548,12 @@ export const AdminDashboardModal = ({
                             <span className="font-black text-emerald-400">৳ {parseFloat(book.price).toFixed(2)}</span>
                             <span className="text-slate-600">•</span>
                             <span
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                                book.stock > 3
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded ${book.stock > 3
                                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'
                                   : book.stock > 0
-                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25'
-                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/25'
-                              }`}
+                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25'
+                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/25'
+                                }`}
                             >
                               Stock: {book.stock} units ({book.status})
                             </span>
@@ -621,71 +616,69 @@ export const AdminDashboardModal = ({
                 </button>
               </div>
 
-              {adminSummaryLoading ? (
-                <div className="py-12 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                {
+                  adminSummaryLoading?(
+                <div className = "py-12 text-center text-xs text-slate-400 flex flex-col items-center gap-2" >
                   <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
                   <span>Loading recent orders from database...</span>
                 </div>
-              ) : liveOrders.length > 0 ? (
-                <div className="space-y-3">
-                  {liveOrders.map((ord) => (
-                    <div
-                      key={ord.id}
-                      className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-3 text-xs"
-                    >
-                      {/* Top Header: Order Number, Customer, Status Badges */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-900">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-cyan-300 font-bold">{ord.order_number}</span>
-                          <span className="text-slate-500">•</span>
-                          <span className="font-bold text-white">{ord.customer_name}</span>
-                          <span className="text-slate-400 text-[11px]">({ord.customer_email})</span>
-                          {ord.customer_phone && (
-                            <span className="text-slate-400 text-[11px] flex items-center gap-1">
-                              <Phone className="w-3 h-3 text-slate-500" />
-                              {ord.customer_phone}
-                            </span>
-                          )}
-                        </div>
+          ) : liveOrders.length > 0 ? (
+            <div className="space-y-3">
+              {liveOrders.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-3 text-xs"
+                >
+                    {/* Top Header: Order Number, Customer, Status Badges */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-900">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-cyan-300 font-bold">{ord.order_number}</span>
+                        <span className="text-slate-500">•</span>
+                        <span className="font-bold text-white">{ord.customer_name}</span>
+                        <span className="text-slate-400 text-[11px]">({ord.customer_email})</span>
+                        {ord.customer_phone && (
+                          <span className="text-slate-400 text-[11px] flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-slate-500" />
+                            {ord.customer_phone}
+                          </span>
+                        )}
+                      </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
                           {/* Payment Method Badge */}
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              ord.payment_method === 'bkash'
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ord.payment_method === 'bkash'
                                 ? 'bg-pink-500/10 text-pink-400 border border-pink-500/30'
                                 : ord.payment_method === 'nagad'
-                                ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
-                                : ord.payment_method === 'rocket'
-                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                                  ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+                                  : ord.payment_method === 'rocket'
+                                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
                                 : 'bg-slate-800 text-slate-300 border border-slate-700'
                             }`}
                           >
-                            {ord.payment_method}
-                          </span>
+                          {ord.payment_method}
+                        </span>
 
                           {/* Payment Status Badge */}
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              ord.payment_status === 'paid'
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ord.payment_status === 'paid'
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                                 : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                            }`}
+                              }`}
                           >
                             {ord.payment_status === 'paid' ? 'Paid' : 'Pending Payment'}
                           </span>
 
                           {/* Fulfillment Status Badge */}
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              ord.status === 'delivered'
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${ord.status === 'delivered'
                                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                                 : ord.status === 'shipped'
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                                : ord.status === 'processing'
-                                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                            }`}
+                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                                  : ord.status === 'processing'
+                                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              }`}
                           >
                             {ord.status}
                           </span>
@@ -693,15 +686,15 @@ export const AdminDashboardModal = ({
                           <span className="font-black text-emerald-400 text-sm pl-1">
                             ৳ {parseFloat(ord.total_amount).toFixed(2)}
                           </span>
-                        </div>
                       </div>
+                    </div>
 
-                      {/* Items List */}
-                      <div className="space-y-1.5">
-                        <div className="text-[11px] font-semibold text-slate-400">Order Items:</div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {ord.items && ord.items.length > 0 ? (
-                            ord.items.map((it, idx) => (
+                        {/* Items List */}
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-semibold text-slate-400">Order Items:</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {ord.items && ord.items.length > 0 ? (
+                              ord.items.map((it, idx) => (
                               <div
                                 key={it.id || idx}
                                 className="p-2 rounded-xl bg-slate-900/90 border border-slate-800/80 flex items-center justify-between text-xs"
@@ -721,170 +714,170 @@ export const AdminDashboardModal = ({
                                   </div>
                                 </div>
                               </div>
-                            ))
-                          ) : (
+                              ))
+                            ) : (
                             <div className="text-slate-400 text-xs">Standard Book Order</div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Footer & Meta: Shipping, TrxID, and Administrative Moderation Buttons */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-900 text-[11px]">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5 text-slate-400">
-                            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                            <span>Ship to: <strong className="text-slate-300">{ord.shipping_address}</strong></span>
+                            )}
                           </div>
-                          {ord.transaction_id && (
-                            <div className="font-mono text-[10px] text-cyan-400/90">
-                              Payment Transaction ID: <span className="font-bold">{ord.transaction_id}</span>
+                        </div>
+
+                            {/* Footer & Meta: Shipping, TrxID, and Administrative Moderation Buttons */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-900 text-[11px]">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 text-slate-400">
+                                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                  <span>Ship to: <strong className="text-slate-300">{ord.shipping_address}</strong></span>
+                                </div>
+                              {ord.transaction_id && (
+                                <div className="font-mono text-[10px] text-cyan-400/90">
+                                  Payment Transaction ID: <span className="font-bold">{ord.transaction_id}</span>
+                                </div>
+                              )}
+                            </div>
+
+                              {/* Admin Action Buttons */}
+                              <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
+                                {ord.payment_status !== 'paid' && (
+                                  <button
+                                    onClick={() => handleUpdateOrderStatus(ord.id, ord.status, 'paid')}
+                                    disabled={updatingOrderId === ord.id}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                                  >
+                                    Confirm Paid
+                                  </button>
+                                )}
+
+                                {ord.status === 'confirmed' && (
+                                  <button
+                                    onClick={() => handleUpdateOrderStatus(ord.id, 'processing')}
+                                    disabled={updatingOrderId === ord.id}
+                                    className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                                  >
+                                    Approve Processing
+                                  </button>
+                                )}
+
+                                {ord.status === 'processing' && (
+                                  <button
+                                    onClick={() => handleUpdateOrderStatus(ord.id, 'shipped')}
+                                    disabled={updatingOrderId === ord.id}
+                                    className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                                  >
+                                    Mark Shipped
+                                  </button>
+                                )}
+
+                                {ord.status === 'shipped' && (
+                                  <button
+                                    onClick={() => handleUpdateOrderStatus(ord.id, 'delivered', 'paid')}
+                                    disabled={updatingOrderId === ord.id}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                                  >
+                                    Mark Delivered
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      ) : (
+                        <div className="py-12 text-center text-xs text-slate-400 bg-slate-950/60 rounded-2xl border border-slate-800 p-6 space-y-2">
+                          <ShoppingCart className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                          <div className="font-bold text-white text-sm">No Marketplace Orders Yet</div>
+                          <p className="max-w-md mx-auto text-slate-400">
+                            When buyers purchase books via Instant Buy or Cart Checkout, orders with full customer details, payment gateway methods (bKash, Nagad, Rocket, COD), and transaction IDs will appear here in real time.
+                          </p>
+                        </div>
+              )}
+                      </div>
+          )}
+
+                      {/* TAB 4: INQUIRIES & MESSAGES */}
+                      {activeTab === 'inquiries' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                <Mail className="w-4 h-4 text-emerald-400" />
+                                <span>Customer Contact Messages</span>
+                              </h3>
+                              <p className="text-xs text-slate-400">
+                                Inquiries received directly from the storefront contact form
+                              </p>
+                            </div>
+                            <button
+                              onClick={loadInquiries}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                            >
+                              <RefreshCw className={`w-3.5 h-3.5 ${inquiriesLoading ? 'animate-spin' : ''}`} />
+                              <span>Refresh</span>
+                            </button>
+                          </div>
+
+                          {inquiriesLoading ? (
+                            <div className="py-12 text-center text-xs text-slate-400">
+                              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-cyan-400" />
+                              Loading customer inquiries...
+                            </div>
+                          ) : inquiries.length > 0 ? (
+                            <div className="space-y-3">
+                              {inquiries.map((inq) => (
+                                <div
+                                  key={inq.id}
+                                  className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs"
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-white text-sm">{inq.name}</span>
+                                      <span className="text-slate-500">•</span>
+                                      <a
+                                        href={`mailto:${inq.email}`}
+                                        className="text-cyan-400 hover:underline font-mono text-[11px]"
+                                      >
+                                        {inq.email}
+                                      </a>
+                                    </div>
+                                    <span className="text-[10px] text-slate-500">
+                                      {new Date(inq.created_at).toLocaleString()}
+                                    </span>
+                                  </div>
+
+                                  {inq.contact && (
+                                    <div className="text-[11px] text-slate-400">
+                                      Contact / Phone: <span className="text-slate-200 font-mono">{inq.contact}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-850 text-slate-300 text-xs leading-relaxed whitespace-pre-wrap">
+                                    {inq.message}
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-2 pt-1">
+                                    <a
+                                      href={`mailto:${inq.email}?subject=Re: FolioVerse Inquiry&body=Hi ${inq.name},%0D%0A%0D%0A`}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-colors border border-emerald-500/25"
+                                    >
+                                      <Mail className="w-3.5 h-3.5" />
+                                      <span>Reply to {inq.name}</span>
+                                    </a>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-8 text-center text-xs text-slate-400 bg-slate-950/60 rounded-2xl border border-slate-800">
+                              <Mail className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                              <p className="font-medium text-slate-300">No contact inquiries yet.</p>
+                              <p className="text-[11px] text-slate-500 mt-1">
+                                Customer messages submitted through the Contact modal will appear here in real-time.
+                              </p>
                             </div>
                           )}
                         </div>
-
-                        {/* Admin Action Buttons */}
-                        <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
-                          {ord.payment_status !== 'paid' && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, ord.status, 'paid')}
-                              disabled={updatingOrderId === ord.id}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
-                            >
-                              Confirm Paid
-                            </button>
-                          )}
-
-                          {ord.status === 'confirmed' && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, 'processing')}
-                              disabled={updatingOrderId === ord.id}
-                              className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
-                            >
-                              Approve Processing
-                            </button>
-                          )}
-
-                          {ord.status === 'processing' && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, 'shipped')}
-                              disabled={updatingOrderId === ord.id}
-                              className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
-                            >
-                              Mark Shipped
-                            </button>
-                          )}
-
-                          {ord.status === 'shipped' && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, 'delivered', 'paid')}
-                              disabled={updatingOrderId === ord.id}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
-                            >
-                              Mark Delivered
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-12 text-center text-xs text-slate-400 bg-slate-950/60 rounded-2xl border border-slate-800 p-6 space-y-2">
-                  <ShoppingCart className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                  <div className="font-bold text-white text-sm">No Marketplace Orders Yet</div>
-                  <p className="max-w-md mx-auto text-slate-400">
-                    When buyers purchase books via Instant Buy or Cart Checkout, orders with full customer details, payment gateway methods (bKash, Nagad, Rocket, COD), and transaction IDs will appear here in real time.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 4: INQUIRIES & MESSAGES */}
-          {activeTab === 'inquiries' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-emerald-400" />
-                    <span>Customer Contact Messages</span>
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Inquiries received directly from the storefront contact form
-                  </p>
-                </div>
-                <button
-                  onClick={loadInquiries}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${inquiriesLoading ? 'animate-spin' : ''}`} />
-                  <span>Refresh</span>
-                </button>
-              </div>
-
-              {inquiriesLoading ? (
-                <div className="py-12 text-center text-xs text-slate-400">
-                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-cyan-400" />
-                  Loading customer inquiries...
-                </div>
-              ) : inquiries.length > 0 ? (
-                <div className="space-y-3">
-                  {inquiries.map((inq) => (
-                    <div
-                      key={inq.id}
-                      className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-sm">{inq.name}</span>
-                          <span className="text-slate-500">•</span>
-                          <a
-                            href={`mailto:${inq.email}`}
-                            className="text-cyan-400 hover:underline font-mono text-[11px]"
-                          >
-                            {inq.email}
-                          </a>
-                        </div>
-                        <span className="text-[10px] text-slate-500">
-                          {new Date(inq.created_at).toLocaleString()}
-                        </span>
-                      </div>
-
-                      {inq.contact && (
-                        <div className="text-[11px] text-slate-400">
-                          Contact / Phone: <span className="text-slate-200 font-mono">{inq.contact}</span>
-                        </div>
                       )}
-
-                      <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-850 text-slate-300 text-xs leading-relaxed whitespace-pre-wrap">
-                        {inq.message}
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 pt-1">
-                        <a
-                          href={`mailto:${inq.email}?subject=Re: FolioVerse Inquiry&body=Hi ${inq.name},%0D%0A%0D%0A`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-colors border border-emerald-500/25"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                          <span>Reply to {inq.name}</span>
-                        </a>
-                      </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="p-8 text-center text-xs text-slate-400 bg-slate-950/60 rounded-2xl border border-slate-800">
-                  <Mail className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-                  <p className="font-medium text-slate-300">No contact inquiries yet.</p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Customer messages submitted through the Contact modal will appear here in real-time.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+              );
 };

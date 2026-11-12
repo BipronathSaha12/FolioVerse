@@ -1,170 +1,161 @@
-# FolioVerse — Frontend Architecture & Component Guide
+# FolioVerse — Frontend React 19 & React Router v7 Architecture Guide
 
-**Document Version:** 1.0.0  
-**Status:** Component Architecture Specification  
+**Document Version:** 2.0.0  
+**Status:** Component & Routing Architecture Specification  
 **Authority / Owner:** Bipronath Saha (bipronathsaha@gmail.com)
 
 ---
 
 ## 1. Frontend Architectural Overview
 
-The FolioVerse frontend is a single-page application built using React 19 and Vite 8, styled with Tailwind CSS and a curated glassmorphism design token system. It communicates with the Django REST Framework backend through an Axios service layer.
+The FolioVerse frontend is built using **React 19**, **React Router v7**, and **Vite 8**, styled with **Tailwind CSS v4** and a modern glassmorphism design token system. It replaces purely modal state with real deep-linkable URL paths (`/books/:id`, `/cart`, `/checkout`), enabling direct browser bookmarks, native history traversal, and SEO indexing while maintaining sub-second client-side transitions.
 
-```
+```text
 frontend/src/
 ├── assets/
 │   └── projects/
 │       └── folioverse_logo.jpg       # High-resolution official brand logo
 ├── components/
-│   ├── AdminDashboardModal.jsx       # Mobile-responsive store admin & inventory dashboard with live order tracking
-│   ├── BuyerDashboardModal.jsx       # Dedicated buyer account & order history tracking portal
-│   ├── SellerDashboardModal.jsx      # Dedicated seller operations portal (order fulfillment & catalog moderation)
-│   ├── PaymentGatewayModal.jsx       # Interactive MFS payment gateway modal (Approach 3: QR, OTP, PIN)
+│   ├── AdminDashboardModal.jsx       # Live DB executive admin dashboard with order moderation & MFS analytics
+│   ├── BuyerDashboardModal.jsx       # Dedicated buyer account & purchase analytics portal
+│   ├── SellerDashboardModal.jsx      # Dedicated seller operations portal (order fulfillment & catalog pricing)
+│   ├── PaymentGatewayModal.jsx       # Interactive MFS payment gateway modal (QR, OTP, PIN)
 │   ├── AuthModal.jsx                 # Role onboarding (Buyer vs Seller) & 1-click demo logins
 │   ├── BookCard.jsx                  # Golden 3:4 portrait aspect ratio book card with Add to Cart & Buy
-│   ├── BookDetailModal.jsx           # Detailed book viewer with instant buy action
+│   ├── BookDetailModal.jsx           # Modal fallback viewer for quick preview
 │   ├── BookGrid.jsx                  # Responsive 1..5 column fluid book card grid
 │   ├── BookModal.jsx                 # CRUD creation and modification modal
 │   ├── BuyBookModal.jsx              # Concurrency-safe atomic checkout dialog with multi-payment choices
-│   ├── CartDrawer.jsx                # Slide-out shopping cart drawer (Stripe, bKash, Nagad, Rocket, COD)
+│   ├── CartDrawer.jsx                # Slide-out shopping cart drawer (bKash, Nagad, Rocket, COD)
 │   ├── ContactModal.jsx              # Contact modal (routes to bipronathsaha@gmail.com)
 │   ├── DeleteConfirmModal.jsx        # Deletion confirmation modal
 │   ├── FilterBar.jsx                 # Horizontal category tabs & subcategory pills
 │   ├── HeroSection.jsx               # Digital bookstore hero, role CTAs, and live stats
-│   ├── Navbar.jsx                    # Responsive header with Seller/Admin/Buyer pills & Cart badge
-│   ├── Pagination.jsx                # Sliding window pagination with ellipsis (for 200 pages)
+│   ├── Navbar.jsx                    # Responsive header with role-aware dashboard pills & Cart badge
+│   ├── Pagination.jsx                # Sliding window pagination with direct page jump
 │   └── Toast.jsx                     # Non-intrusive floating alert notifications
 ├── context/
-│   ├── AuthContext.jsx               # Auth state machine (user, token, login, logout, register)
+│   ├── AuthContext.jsx               # Auth state machine (user, token, role, login, logout, register)
 │   └── CartContext.jsx               # Cart state machine (items, quantities, subtotal, persistence)
+├── pages/
+│   ├── HomePage.jsx                  # Main catalog browsing, filtering, search, and hero showcase
+│   ├── BookDetailPage.jsx            # Deep-linked book detail page (/books/:id) with metadata
+│   ├── CartPage.jsx                  # Dedicated full-page shopping cart view (/cart)
+│   └── CheckoutPage.jsx              # Standalone multi-step checkout view (/checkout)
 ├── services/
 │   └── api.js                        # Axios instance with auth interceptors & endpoint mappings
-├── App.jsx                           # Application orchestrator & modal coordinator
+├── App.jsx                           # React Router v7 routes orchestrator & modal coordinator
 ├── index.css                         # Custom glassmorphism design tokens & animations
 └── main.jsx                          # React DOM entry point
 ```
 
 ---
 
-## 2. Component Hierarchy & Responsibilities
+## 2. React Router v7 & Deep Linking Architecture
 
-### 2.1 `Navbar.jsx` (Decongested Desktop & Mobile Responsive)
-- **Desktop Layout ($\ge 1024\text{px}$):**
-  - Decongested architecture eliminating horizontal crowding.
-  - **Left:** Official Logo with live stock indicator beacon (`2,000 In Stock`).
-  - **Center:** Mega-dropdown for genres with active filter indicators + clear pill, quick literature filters (Bengali & English), Dashboard and Contact links.
-  - **Right:** Standout **Cart trigger pill** with live item count badge and subtotal, **Sell a Book** button, and User Profile / Sign In controls.
-- **Mobile Responsive Drawer ($< 1024\text{px}$):**
-  - Proportional logo scaling, direct Cart button in header, and smooth animated hamburger toggle.
-  - Mobile slide-out drawer featuring bookstore status, role onboarding cards, quick dashboard/contact buttons, wrapped genre pills, and user authentication actions with full touch safety ($\ge 44\text{px}$).
+FolioVerse upgraded from monolithic modal state to first-class URL routing via **React Router v7**:
 
-### 2.2 `CartDrawer.jsx` & `CartContext.jsx` (Shopping Cart & Multi-Payment Checkout)
-- **State Management (`CartContext.jsx`):**
-  - Persisted to browser `localStorage` (`folioverse_cart`).
-  - Manages quantities, stock clamps, removals, and subtotal calculation.
-- **Drawer UI (`CartDrawer.jsx`):**
-  - Slide-out presentation with smooth backdrop blur.
-  - Item list with book covers, titles, authors, quantity increment/decrement, and subtotal.
-  - **3 Payment Options:**
-    1. **Stripe (Credit / Debit Card):** Card number, expiry, CVC inputs with 256-bit encryption badge.
-    2. **Mobile Banking (bKash / Nagad / Rocket):** Provider tabs, merchant numbers (`01712-345678`), copyable merchant number button, reference instructions, and Transaction ID (TrxID) input.
-    3. **Cash on Delivery (COD):** No online payment required; doorstep cash handover with 2-3 day delivery notice.
-  - Places order to backend `/api/orders/` atomically and renders a verified order receipt with Order Number (`FV-ORD-...`), payment status, customer details, and purchased books.
-
-### 2.3 `BookCard.jsx` & Device Length / Ratio Scaling
-- **Portrait Golden Aspect Ratio ($3:4$):** Standard book dimensions prevent cover image stretching or squishing on all devices.
-- Uniform card heights across columns with flexbox column alignment.
-- Dual purchase pathways: "Add to Cart" (quick feedback) and "Buy" (instant checkout).
-
-### 2.2 `HeroSection.jsx`
-- Replaces legacy multi-tenant SaaS text with digital book shop marketplace content.
-- **Onboarding Cards:** Directly routes users to `Join as Book Buyer` or `Join as Book Seller`.
-- **Marketplace Metrics:** 4 live cards:
-  1. *Catalog Volume:* 2,000+ Books In Stock.
-  2. *Curated Genres:* 5 Main Catalogs (Science, Tech, Lit, Fiction, Music).
-  3. *Dual Literature:* বাংলা & English Classics.
-  4. *Availability:* Live Stock Check with atomic checkout.
-
-### 2.3 `SellerDashboardModal.jsx` (Dedicated Seller Operations & Fulfillment Portal)
-- Exclusively loaded for verified sellers (`isSeller: true`). Hides buyer views and removes cart clutter.
-- **Top KPI Cards**: Sales Revenue, Units Sold, Orders Needing Action, and Active Listings.
-- **Tab 1: Incoming Orders & Fulfillment**:
-  - Displays customer name, phone number, email, and shipping address.
-  - Lists specific books ordered, unit pricing, quantities, and line totals.
-  - Shows payment verification badges (`bKash Paid`, `Nagad Paid`, `Rocket Paid`, `Card Paid`, `Cash on Delivery`).
-  - Action buttons to advance fulfillment: *"Approve & Prepare Shipment"* (`confirmed` -> `processing`), *"Dispatch with Courier"* (`processing` -> `shipped`), *"Confirm Delivery"* (`shipped` -> `delivered`).
-- **Tab 2: Catalog Management & Moderation**:
-  - Searchable list of seller's books.
-  - **Inline Price Editor**: Edit book prices with validation (minimum ৳180.00 floor).
-  - **Stock Increment/Decrement**: Fast restock controls with live status badges.
-  - Delisting and editing buttons.
-
-### 2.4 `PaymentGatewayModal.jsx` (Interactive MFS Payment Gateway — Approach 3)
-- Multi-provider interactive sandbox modal supporting **bKash**, **Nagad**, and **Rocket**.
-- Step 1: Provider selection & merchant details with live dynamic QR code generator and 1-click scanner.
-- Step 2: Customer mobile number input & automated 6-digit SMS OTP generator with auto-fill simulation.
-- Step 3: Masked 4-digit PIN pad with visibility toggle and security notices.
-- Triggers atomic backend checkout upon valid PIN entry and displays confirmed order receipt.
-
-### 2.5 `BuyerDashboardModal.jsx` (Dedicated Buyer Account & Orders Portal)
-- Dedicated portal strictly for book buyers (`isBuyer: true`).
-- Displays personal purchase history, order numbers, delivery tracking states, and downloadable invoice details.
-
-### 2.6 `AdminDashboardModal.jsx` (Storewide Admin Dashboard)
-- **Tab 1: Overview & Metrics:** High-level inventory health cards and genre distribution progress bars.
-- **Tab 2: Inventory Management:** Searchable list of books with quick stock adjustment (`+5 Restock`), Edit, and Delete controls.
-- **Tab 3: Orders & Transactions:** Storewide order feed with buyer details and payment status.
-
-### 2.7 `ContactModal.jsx` (Email Redirection to `bipronathsaha@gmail.com`)
-- Accessible from both the navigation bar and footer.
-- Displays target recipient: `bipronathsaha@gmail.com`.
-- Fields: Recipient's Name, Email, Contact (Phone), and Message box.
-- Encodes details into an RFC 2368 `mailto:` link, redirects via `window.location.href`, and displays an in-app confirmation screen with copy and re-open options.
-
-### 2.8 `AuthModal.jsx` (Role Selection & 1-Click Demo Logins)
-- **Role Selection Cards:** Toggle between **Book Buyer** and **Book Seller** prior to account creation.
-- **1-Click Demo Accounts:**
-  - `Admin`: `admin / admin12345` (Superuser & staff dashboard access).
-  - `Buyer Demo`: `buyer_demo / buyer12345` (Book buyer persona).
-  - `Seller Demo`: `seller_demo / seller12345` (Book seller persona).
-
-### 2.9 `Pagination.jsx` (Sliding Window for 200+ Pages)
-- For 2,000 books at 10 items per page, `totalPages = 200`.
-- Implements an intelligent sliding window: `[1, 2, ..., currentPage - 1, currentPage, currentPage + 1, ..., 199, 200]`.
-- Features First (`<<`), Previous (`<`), Next (`>`), and Last (`>>`) controls.
-- Provides a direct jump input (`Go to: [ ] Go`) that is compact on mobile screens.
-
----
-
-## 3. Responsive Breakpoint Specification
-
-FolioVerse enforces strict margin and alignment constraints across all device classes:
-
-| Breakpoint | Target Screen Width | Layout & Adaptation |
+### Route Definitions:
+| Path | Component | Purpose |
 | :--- | :--- | :--- |
-| **Mini Mobile** | $320\text{px} - 375\text{px}$ (e.g., iPhone SE) | 1-column card grid, compact navbar with logo & hamburger, full-width slide-over drawer, no horizontal overflow |
-| **Standard Mobile** | $376\text{px} - 639\text{px}$ (e.g., iPhone 14/15, Pixel) | 1-column cards with responsive image aspect ratio, touch-friendly tap targets ($\ge 44\text{px}$) |
-| **Tablet** | $640\text{px} - 1023\text{px}$ (e.g., iPad, Galaxy Tab) | 2-column book grid, 2-column metrics cards, expandable drawer |
-| **Desktop / Laptop** | $1024\text{px} - 1279\text{px}$ | 3-column book grid, desktop navbar with mega-dropdown, right action bar |
-| **Wide Desktop** | $1280\text{px}+$ (e.g., 1080p, 1440p, 4K) | 4-column book grid, centered max-w-7xl container, enhanced glassmorphism blur |
+| `/` | `HomePage` | Primary storefront, hero banner, multi-genre filtering, search bar, and 2,000-book catalog grid. |
+| `/books/:id` | `BookDetailPage` | Dedicated, shareable book page with complete description, author info, condition, stock availability, and instant purchase. |
+| `/cart` | `CartPage` | Dedicated full-page shopping cart view with item adjustment and order summary. |
+| `/checkout` | `CheckoutPage` | Focused checkout flow with shipping address input, payment method selection, and MFS payment gateway launcher. |
+
+### Benefits:
+- **Direct Bookmarks & Sharing**: Users and sellers can share links directly to specific book listings (`https://folioverse.vercel.app/books/42`).
+- **Browser History Support**: Native back and forward buttons work seamlessly without closing application state.
+- **Search Engine Indexing**: Clean URLs enable search engines to crawl and index individual book titles.
 
 ---
 
-## 4. Design System Tokens (`index.css`)
+## 3. Dedicated Dashboard Portals & Operations
 
-```css
-/* Glassmorphism Design Tokens */
-.glass-panel {
-  background: rgba(11, 17, 33, 0.82);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
+### 3.1 Store Admin Dashboard (`AdminDashboardModal.jsx`)
+Powered by the high-performance `/api/orders/admin-summary/` backend endpoint:
+- **Tab 1: Overview & Metrics**:
+  - **Gross Platform Volume**: Live database sum of all placed orders.
+  - **Cleared Revenue**: Total amount settled via MFS or delivered cash on delivery.
+  - **Order Tracking**: Total marketplace orders and orders currently pending fulfillment.
+  - **Catalog Health**: Total books, total stock units in PostgreSQL, low stock alerts ($\le 3$), and out-of-stock counts.
+  - **Platform User Base**: Active registered buyers vs verified store sellers.
+  - **Payment Method Settlement Breakdown**: Real-time order count and BDT revenue distribution across **bKash**, **Nagad**, **Rocket**, and **COD**.
+  - **Genre Distribution**: Visual progress bars showing book counts across the 5 main genres.
+- **Tab 2: Inventory Management**:
+  - Instant catalog search by title or author.
+  - Quick `+5 Restock` button to add units directly with automatic status recalculation.
+  - Edit and Delete listing controls.
+- **Tab 3: Orders & Transactions**:
+  - Complete list of live orders with customer name, email, phone number, and delivery address.
+  - Payment method badges and payment clearance status (`PAID` in green, `PENDING` in amber) with transaction IDs.
+  - Line items breakdown with book titles, authors, quantities, unit prices, and seller usernames.
+  - **Administrative Moderation Actions**:
+    - *Confirm Paid*: Instantly settles payment for COD or unconfirmed transactions.
+    - *Approve Processing*: Advances order from `confirmed` $\rightarrow$ `processing`.
+    - *Mark Shipped*: Dispatches parcel with courier (`processing` $\rightarrow$ `shipped`).
+    - *Mark Delivered*: Confirms receipt and finalizes the order (`shipped` $\rightarrow$ `delivered`).
+- **Tab 4: Customer Messages & Inquiries**:
+  - Live review of inquiries submitted via the storefront contact form.
 
-.glass-card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
+### 3.2 Seller Operations & Fulfillment Portal (`SellerDashboardModal.jsx`)
+- Exclusively available for users with the `seller` role (`seller_demo`).
+- **Top KPI Cards**: Sales Revenue earned by seller, Units Sold, Orders Needing Action, and Active Listings.
+- **Tab 1: Incoming Orders & Fulfillment**:
+  - Real-time customer orders for the seller's books (including store catalog books attributed to `seller_demo`).
+  - Displays customer full name, delivery address, phone number, and payment status.
+  - Direct fulfillment controls (`confirmed` $\rightarrow$ `processing` $\rightarrow$ `shipped` $\rightarrow$ `delivered`).
+- **Tab 2: Catalog Management & Moderation**:
+  - Searchable list of the seller's listed books.
+  - **Inline Price Editor**: Edit prices with validation (minimum ৳180.00 price floor).
+  - **Stock Controls**: Quick restock controls with live status badges.
+
+### 3.3 Buyer Purchase & History Portal (`BuyerDashboardModal.jsx`)
+- Accessible for users with the `buyer` role (`buyer_demo`).
+- Powered by `/api/orders/buyer-summary/`.
+- Displays total orders, total spent, cleared payments, and genre purchase distribution.
+- Complete purchase history with tracking badges and order receipts.
+
+---
+
+## 4. Mobile Navigation & Responsive Drawer
+
+The navigation system (`Navbar.jsx`) is engineered for seamless operation on devices from 320px smartphones to 4K displays:
+
+- **Desktop Layout ($\ge 1024\text{px}$)**:
+  - Official logo with live inventory indicator.
+  - Mega-dropdown for genres with active filter indicators.
+  - Role-specific dashboard button (Store Admin, Seller Portal, or Buyer Orders based on authenticated role).
+  - Cart trigger pill with live item badge and total.
+- **Mobile Responsive Drawer ($< 1024\text{px}$)**:
+  - Header displays logo, cart button, and hamburger toggle.
+  - Slide-out drawer features:
+    - Role-aware quick actions: Directly opens the user's specific dashboard (**Admin Dashboard** for admins, **Seller Portal** for sellers, **My Orders** for buyers).
+    - Wrapped genre category pills.
+    - 1-Click demo login buttons and authentication controls.
+    - All touch targets strictly follow WCAG accessibility guidelines ($\ge 44\text{px}$).
+
+---
+
+## 5. Centralized API Service (`services/api.js`)
+
+All communication with the Django REST Framework backend routes through a centralized Axios client with automatic token injection:
+
+```javascript
+export const orderService = {
+  createOrder: (data) => api.post('/orders/', data),
+  getOrders: (params = {}) => api.get('/orders/', { params }),
+  getOrder: (id) => api.get(`/orders/${id}/`),
+  getBuyerSummary: (params = {}) => api.get('/orders/buyer-summary/', { params }),
+  getSellerSummary: (params = {}) => api.get('/orders/seller-summary/', { params }),
+  getAdminSummary: (params = {}) => api.get('/orders/admin-summary/', { params }),
+  updateOrderStatus: (id, data) => api.post(`/orders/${id}/update-status/`, data),
+  // MFS Interactive Gateway Suite
+  gatewayInitiate: (data) => api.post('/orders/gateway-initiate/', data),
+  gatewaySendOtp: (data) => api.post('/orders/gateway-send-otp/', data),
+  gatewayVerifyOtp: (data) => api.post('/orders/gateway-verify-otp/', data),
+  gatewayConfirmPin: (data) => api.post('/orders/gateway-confirm-pin/', data),
+  gatewayQrScan: (data) => api.post('/orders/gateway-qr-scan/', data),
+  gatewayCancel: (data) => api.post('/orders/gateway-cancel/', data),
+};
 ```
