@@ -199,3 +199,4 @@ class RedisInventoryManager:
         val = cache.get(key)
         if val is not None:
             cache.set(key, int(val) + quantity, timeout=None)
+

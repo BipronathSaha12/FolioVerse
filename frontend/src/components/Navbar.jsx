@@ -589,12 +589,41 @@ export const Navbar = ({
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      onOpenDashboard();
+                      if (isAdmin) {
+                        navigate('/dashboard/admin');
+                        if (onOpenDashboard) onOpenDashboard();
+                      } else if (isSeller) {
+                        navigate('/dashboard/seller');
+                        if (onOpenSellerDashboard) onOpenSellerDashboard();
+                      } else {
+                        navigate('/dashboard/buyer');
+                        if (onOpenBuyerDashboard) onOpenBuyerDashboard();
+                      }
                     }}
-                    className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-slate-900 border border-cyan-500/30 text-cyan-300 font-bold text-xs"
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl bg-slate-900 border font-bold text-xs transition-all ${
+                      isAdmin
+                        ? 'border-purple-500/30 text-purple-300 hover:bg-purple-950/40'
+                        : isSeller
+                        ? 'border-amber-500/30 text-amber-300 hover:bg-amber-950/40'
+                        : 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-950/40'
+                    }`}
                   >
-                    <Shield className="w-4 h-4 text-cyan-400" />
-                    <span>Admin Dashboard</span>
+                    {isAdmin ? (
+                      <>
+                        <Shield className="w-4 h-4 text-purple-400" />
+                        <span>Admin Dashboard</span>
+                      </>
+                    ) : isSeller ? (
+                      <>
+                        <Store className="w-4 h-4 text-amber-400" />
+                        <span>Seller Dashboard</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="w-4 h-4 text-emerald-400" />
+                        <span>Buyer Dashboard</span>
+                      </>
+                    )}
                   </button>
                 )}
 
@@ -692,9 +721,16 @@ export const Navbar = ({
                     <button
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        if (isAdmin) navigate('/dashboard/admin');
-                        else if (isSeller) navigate('/dashboard/seller');
-                        else navigate('/dashboard/buyer');
+                        if (isAdmin) {
+                          navigate('/dashboard/admin');
+                          if (onOpenDashboard) onOpenDashboard();
+                        } else if (isSeller) {
+                          navigate('/dashboard/seller');
+                          if (onOpenSellerDashboard) onOpenSellerDashboard();
+                        } else {
+                          navigate('/dashboard/buyer');
+                          if (onOpenBuyerDashboard) onOpenBuyerDashboard();
+                        }
                       }}
                       className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-90"
                     >

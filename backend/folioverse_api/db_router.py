@@ -51,3 +51,4 @@ class PrimaryReplicaRouter:
         Guarantees that database migrations run exclusively on the primary 'default' database.
         """
         return db == 'default'
+
