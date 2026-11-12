@@ -587,3 +587,79 @@ class BookStoreAPITests(TestCase):
         book.refresh_from_db()
         self.assertEqual(book.stock, 10)
 
+    def test_single_book_buy_creates_order_and_persists_stock(self):
+        """
+        Verify that instant buy (/api/books/<id>/buy/) creates an Order and OrderItem in the database.
+        """
+        from books.redis_inventory import RedisInventoryManager
+        book = self.books[0]
+        book.stock = 15
+        book.save()
+        RedisInventoryManager.warm_stock(book.id, 15)
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        payload = {
+            "quantity": 2,
+            "payment_method": "bkash",
+            "transaction_id": "BKASH-TEST-998877",
+            "customer_phone": "01799887766",
+            "shipping_address": "Uttara, Dhaka",
+        }
+        res = self.client.post(f'/api/books/{book.id}/buy/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("order", res.data)
+        self.assertIn("order_id", res.data["order"])
+
+        order_id = res.data["order"]["order_id"]
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.payment_status, "paid")
+        self.assertEqual(order.transaction_id, "BKASH-TEST-998877")
+        self.assertEqual(order.items.count(), 1)
+        self.assertEqual(order.items.first().book, book)
+
+        book.refresh_from_db()
+        self.assertEqual(book.stock, 13)
+
+    def test_admin_summary_endpoint(self):
+        """
+        Verify that store administrator can retrieve platform-wide aggregated analytics and orders.
+        """
+        admin_user = User.objects.create_superuser(
+            username='admin_tester',
+            email='admin@example.com',
+            password='adminpassword'
+        )
+        admin_token = Token.objects.create(user=admin_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {admin_token.key}')
+
+        res = self.client.get('/api/orders/admin-summary/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("total_orders", res.data)
+        self.assertIn("total_revenue", res.data)
+        self.assertIn("cleared_revenue", res.data)
+        self.assertIn("total_books", res.data)
+        self.assertIn("payment_breakdown", res.data)
+        self.assertIn("recent_orders", res.data)
+
+    def test_seller_summary_endpoint(self):
+        """
+        Verify that a seller can retrieve incoming orders, revenue, and catalog items.
+        """
+        seller_user = User.objects.create_user(
+            username='seller_tester',
+            email='seller_tester@example.com',
+            password='password123'
+        )
+        seller_token = Token.objects.create(user=seller_user)
+        book = self.books[0]
+        book.seller = seller_user
+        book.save()
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {seller_token.key}')
+        res = self.client.get('/api/orders/seller-summary/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("seller_username", res.data)
+        self.assertIn("total_listed_books", res.data)
+        self.assertIn("incoming_orders", res.data)
+        self.assertIn("catalog_books", res.data)
+

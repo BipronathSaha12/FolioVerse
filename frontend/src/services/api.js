@@ -76,6 +76,8 @@ export const orderService = {
   getBuyerSummary: (params = {}) => api.get('/orders/buyer-summary/', { params }),
   // Seller Portal API methods
   getSellerSummary: (params = {}) => api.get('/orders/seller-summary/', { params }),
+  // Administrator Analytics & Governance
+  getAdminSummary: (params = {}) => api.get('/orders/admin-summary/', { params }),
   updateOrderStatus: (id, data) => api.post(`/orders/${id}/update-status/`, data),
   // MFS Interactive Gateway Suite
   gatewayInitiate: (data) => api.post('/orders/gateway-initiate/', data),

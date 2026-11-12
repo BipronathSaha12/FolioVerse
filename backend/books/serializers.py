@@ -99,11 +99,14 @@ class BookSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    seller_username = serializers.CharField(source='book.seller.username', read_only=True, default='FolioVerse Official')
+    seller_id = serializers.IntegerField(source='book.seller.id', read_only=True, default=None)
+
     class Meta:
         from .models import OrderItem
         model = OrderItem
-        fields = ['id', 'book', 'title', 'author', 'category', 'cover_image', 'unit_price', 'quantity', 'subtotal']
-        read_only_fields = ['id', 'title', 'author', 'category', 'cover_image', 'unit_price', 'subtotal']
+        fields = ['id', 'book', 'title', 'author', 'category', 'cover_image', 'unit_price', 'quantity', 'subtotal', 'seller_username', 'seller_id']
+        read_only_fields = ['id', 'title', 'author', 'category', 'cover_image', 'unit_price', 'subtotal', 'seller_username', 'seller_id']
 
 
 class OrderSerializer(serializers.ModelSerializer):

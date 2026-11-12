@@ -90,11 +90,60 @@ class BookViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 2. Persist inventory state in PostgreSQL with compensation rollback
+        # 2. Persist inventory state in PostgreSQL and create real Order and OrderItem
         try:
             with transaction.atomic():
                 book.stock = remaining_stock
+                # Ensure book has a seller associated for seller dashboard attribution
+                if not book.seller:
+                    default_seller = User.objects.filter(username='seller_demo').first() or User.objects.filter(is_staff=True).first()
+                    if default_seller:
+                        book.seller = default_seller
                 book.save()
+
+                buyer_user = request.user if (request.user and request.user.is_authenticated) else None
+                customer_name = (request.data.get('customer_name') or '').strip()
+                if not customer_name:
+                    customer_name = (buyer_user.get_full_name() or buyer_user.username) if buyer_user else 'Direct Buyer'
+
+                customer_email = (request.data.get('customer_email') or '').strip()
+                if not customer_email:
+                    customer_email = buyer_user.email if (buyer_user and buyer_user.email) else 'buyer@folioverse.com'
+
+                customer_phone = (request.data.get('customer_phone') or '').strip() or '01700000000'
+                shipping_address = (request.data.get('shipping_address') or '').strip() or 'Standard Courier Delivery'
+                payment_method = (request.data.get('payment_method') or 'cod').lower()
+                transaction_id = (request.data.get('transaction_id') or '').strip()
+                initial_pay_status = 'paid' if (transaction_id or payment_method in ['bkash', 'nagad', 'rocket']) else 'pending'
+
+                item_subtotal = Decimal(str(book.price)) * quantity
+                order_number = f"FV-ORD-{int(time.time())}-{random.randint(1000, 9999)}"
+
+                order = Order.objects.create(
+                    order_number=order_number,
+                    user=buyer_user,
+                    customer_name=customer_name,
+                    customer_email=customer_email,
+                    customer_phone=customer_phone,
+                    shipping_address=shipping_address,
+                    payment_method=payment_method,
+                    payment_status=initial_pay_status,
+                    transaction_id=transaction_id,
+                    total_amount=item_subtotal,
+                    status='confirmed',
+                )
+
+                OrderItem.objects.create(
+                    order=order,
+                    book=book,
+                    title=book.title,
+                    author=book.author,
+                    category=book.category or 'Literature & Novel',
+                    cover_image=book.cover_image or '',
+                    unit_price=book.price,
+                    quantity=quantity,
+                    subtotal=item_subtotal,
+                )
         except Exception as e:
             # Compensate in Redis if database persistence fails
             RedisInventoryManager.rollback_stock(book.id, quantity)
@@ -108,6 +157,8 @@ class BookViewSet(viewsets.ModelViewSet):
         return Response({
             "message": f"Successfully purchased {quantity} copy(ies) of '{book.title}'!",
             "order": {
+                "order_id": order.id,
+                "order_number": order.order_number,
                 "book_id": book.id,
                 "title": book.title,
                 "author": book.author,
@@ -118,6 +169,9 @@ class BookViewSet(viewsets.ModelViewSet):
                 "total_amount": f"{total_amount:.2f}",
                 "remaining_stock": book.stock,
                 "status": book.status,
+                "payment_method": order.payment_method,
+                "payment_status": order.payment_status,
+                "transaction_id": order.transaction_id,
             }
         }, status=status.HTTP_200_OK)
 
@@ -379,7 +433,28 @@ class OrderViewSet(viewsets.ModelViewSet):
         else:
             target_user = request.user
 
-        seller_books = Book.objects.filter(seller=target_user) if target_user else Book.objects.none()
+        is_seller_demo_or_staff = bool(
+            target_user and (
+                target_user.username == 'seller_demo' or
+                target_user.is_staff or
+                target_user.is_superuser
+            )
+        )
+
+        if is_seller_demo_or_staff:
+            seller_books = Book.objects.filter(Q(seller=target_user) | Q(seller__isnull=True))
+            seller_items_qs = OrderItem.objects.filter(Q(book__seller=target_user) | Q(book__seller__isnull=True))
+            pending_fulfillments = Order.objects.filter(
+                Q(items__book__seller=target_user) | Q(items__book__seller__isnull=True),
+                status__in=['confirmed', 'processing']
+            ).distinct().count()
+        else:
+            seller_books = Book.objects.filter(seller=target_user) if target_user else Book.objects.none()
+            seller_items_qs = OrderItem.objects.filter(book__seller=target_user) if target_user else OrderItem.objects.none()
+            pending_fulfillments = Order.objects.filter(
+                items__book__seller=target_user,
+                status__in=['confirmed', 'processing']
+            ).distinct().count() if target_user else 0
 
         # Database aggregation over seller catalog metrics
         book_metrics = seller_books.aggregate(
@@ -395,19 +470,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         out_of_stock_count = book_metrics['out_of_stock_count'] or 0
 
         # Database aggregation over seller sales metrics
-        seller_items_qs = OrderItem.objects.filter(book__seller=target_user) if target_user else OrderItem.objects.none()
-
         sales_metrics = seller_items_qs.aggregate(
             total_sold_units=Sum('quantity'),
             total_revenue=Sum('subtotal'),
         )
         total_sold_units = sales_metrics['total_sold_units'] or 0
         total_revenue = sales_metrics['total_revenue'] or Decimal('0.00')
-
-        pending_fulfillments = Order.objects.filter(
-            items__book__seller=target_user,
-            status__in=['confirmed', 'processing']
-        ).distinct().count() if target_user else 0
 
         # Incoming orders containing this seller's books (indexed slice)
         seller_items = seller_items_qs.select_related('order', 'book').order_by('-id')[:100]
@@ -439,6 +507,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'title': itm.title,
                 'author': itm.author,
                 'category': itm.category,
+                'cover_image': itm.cover_image or (itm.book.cover_image if itm.book else ''),
                 'unit_price': str(itm.unit_price),
                 'quantity': itm.quantity,
                 'subtotal': str(itm.subtotal),
@@ -468,6 +537,77 @@ class OrderViewSet(viewsets.ModelViewSet):
             'catalog_books': serialized_books,
         }, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get'], url_path='admin-summary', permission_classes=[permissions.IsAdminUser])
+    def admin_summary(self, request):
+        """
+        High-scale, database-aggregated executive analytics endpoint for Store Administrators:
+        - Overall sales volume, cleared revenue vs pending.
+        - Total orders, pending fulfillments, delivered orders.
+        - Payment gateway breakdown (bKash, Nagad, Rocket, COD).
+        - Total catalog size, stock count, low stock (< 3), out of stock (0).
+        - Platform user accounts (buyers vs sellers).
+        - Real-time customer orders with complete payment and item details.
+        """
+        all_orders = Order.objects.all().prefetch_related('items__book')
+
+        cleared_filter = (
+            Q(payment_status='paid') |
+            Q(status='delivered') |
+            Q(payment_method__in=['bkash', 'nagad', 'rocket', 'BKASH', 'NAGAD', 'ROCKET'])
+        )
+
+        order_metrics = all_orders.aggregate(
+            total_orders=Count('id'),
+            total_revenue=Sum('total_amount'),
+            cleared_revenue=Sum('total_amount', filter=cleared_filter),
+            pending_orders=Count('id', filter=Q(status__in=['confirmed', 'processing'])),
+            completed_orders=Count('id', filter=Q(status='delivered')),
+        )
+
+        catalog_metrics = Book.objects.aggregate(
+            total_books=Count('id'),
+            total_stock=Sum('stock'),
+            low_stock=Count('id', filter=Q(stock__lte=3, stock__gt=0)),
+            out_of_stock=Count('id', filter=Q(stock=0)),
+        )
+
+        # Payment methods breakdown
+        pay_rows = all_orders.values('payment_method').annotate(
+            orders_count=Count('id'),
+            total_amount=Sum('total_amount')
+        ).order_by('-orders_count')
+
+        payment_breakdown = [
+            {
+                'method': row['payment_method'],
+                'orders_count': row['orders_count'],
+                'amount': f"{(row['total_amount'] or Decimal('0.00')):.2f}",
+            }
+            for row in pay_rows
+        ]
+
+        from accounts.models import UserProfile
+        total_buyers = UserProfile.objects.filter(role=UserProfile.Role.BUYER).count()
+        total_sellers = UserProfile.objects.filter(role=UserProfile.Role.SELLER).count()
+
+        recent_orders = OrderSerializer(all_orders.order_by('-id')[:50], many=True).data
+
+        return Response({
+            'total_orders': order_metrics['total_orders'] or 0,
+            'total_revenue': f"{(order_metrics['total_revenue'] or Decimal('0.00')):.2f}",
+            'cleared_revenue': f"{(order_metrics['cleared_revenue'] or Decimal('0.00')):.2f}",
+            'pending_orders': order_metrics['pending_orders'] or 0,
+            'completed_orders': order_metrics['completed_orders'] or 0,
+            'total_books': catalog_metrics['total_books'] or 0,
+            'total_stock': catalog_metrics['total_stock'] or 0,
+            'low_stock_count': catalog_metrics['low_stock'] or 0,
+            'out_of_stock_count': catalog_metrics['out_of_stock'] or 0,
+            'total_buyers': total_buyers,
+            'total_sellers': total_sellers,
+            'payment_breakdown': payment_breakdown,
+            'recent_orders': recent_orders,
+        }, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post', 'patch'], url_path='update-status', permission_classes=[permissions.IsAuthenticated])
     def update_status(self, request, pk=None):
         """
@@ -478,7 +618,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Authorization: caller must be administrator or seller of at least one book in this order
         is_admin = bool(request.user.is_staff or request.user.is_superuser)
-        is_order_seller = order.items.filter(book__seller=request.user).exists()
+        is_order_seller = (
+            order.items.filter(book__seller=request.user).exists() or
+            (request.user.username == 'seller_demo' and order.items.filter(Q(book__seller=request.user) | Q(book__seller__isnull=True)).exists())
+        )
         if not (is_admin or is_order_seller):
             return Response(
                 {"error": "You do not have permission to update the status of this order."},
@@ -487,6 +630,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         new_status = request.data.get('status')
         new_payment_status = request.data.get('payment_status')
+        new_transaction_id = request.data.get('transaction_id')
 
         valid_statuses = [c[0] for c in Order.ORDER_STATUS_CHOICES]
         if new_status:
@@ -506,6 +650,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 )
             order.payment_status = new_payment_status
 
+        if new_transaction_id:
+            order.transaction_id = str(new_transaction_id).strip()
+
         order.save()
         return Response({
             "message": f"Order #{order.order_number} status updated to '{order.status}'.",
@@ -521,6 +668,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         provider = (request.data.get('provider') or 'bkash').lower()
         account_number = (request.data.get('account_number') or '').strip()
         amount = request.data.get('amount', '0.00')
+        order_id = request.data.get('order_id')
+        order_number = request.data.get('order_number')
 
         if provider not in ['bkash', 'nagad', 'rocket']:
             return Response(
@@ -543,6 +692,18 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         txn_id = f"{provider.upper()}-TXN-{int(time.time() % 1000000):06d}{random.randint(10, 99)}"
 
+        matching_order = None
+        if order_id:
+            matching_order = Order.objects.filter(id=order_id).first()
+        elif order_number:
+            matching_order = Order.objects.filter(order_number=order_number).first()
+
+        if matching_order:
+            matching_order.payment_status = 'paid'
+            matching_order.payment_method = provider
+            matching_order.transaction_id = txn_id
+            matching_order.save(update_fields=['payment_status', 'payment_method', 'transaction_id'])
+
         return Response({
             "success": True,
             "status": "PAID",
@@ -552,6 +713,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             "amount": amount,
             "currency": "BDT",
             "transaction_id": txn_id,
+            "order_number": matching_order.order_number if matching_order else None,
             "message": f"Payment of ৳{amount} verified and completed via {provider.upper()} API Gateway.",
         }, status=status.HTTP_200_OK)
 
@@ -783,6 +945,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                 for book_id, qty, remaining_stock, book in decremented_items:
                     # Update stock in PostgreSQL
                     book.stock = remaining_stock
+                    if not book.seller:
+                        default_seller = User.objects.filter(username='seller_demo').first() or User.objects.filter(is_staff=True).first()
+                        if default_seller:
+                            book.seller = default_seller
                     book.save()
 
                     item_subtotal = book.price * qty

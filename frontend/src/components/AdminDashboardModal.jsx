@@ -18,6 +18,11 @@ import {
   Trash2,
   ExternalLink,
   Mail,
+  Clock,
+  Phone,
+  MapPin,
+  CreditCard,
+  Users,
 } from 'lucide-react';
 import { bookService, orderService, contactService } from '../services/api';
 
@@ -76,25 +81,51 @@ export const AdminDashboardModal = ({
     }
   }, [isOpen]);
 
-  // Fetch live orders
-  const loadOrders = async () => {
-    setOrdersLoading(true);
+  const [adminSummary, setAdminSummary] = useState(null);
+  const [adminSummaryLoading, setAdminSummaryLoading] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+
+  // Fetch executive admin summary and live orders
+  const loadAdminSummary = async () => {
+    setAdminSummaryLoading(true);
     try {
-      const res = await orderService.getOrders();
-      const results = res.data?.results || res.data || [];
-      setLiveOrders(results);
+      const res = await orderService.getAdminSummary();
+      setAdminSummary(res.data);
+      if (res.data?.recent_orders) {
+        setLiveOrders(res.data.recent_orders);
+      }
     } catch (err) {
-      console.error('Failed to load orders:', err);
+      console.warn('Failed to load admin summary:', err);
     } finally {
-      setOrdersLoading(false);
+      setAdminSummaryLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen && activeTab === 'orders') {
-      loadOrders();
+    if (isOpen) {
+      loadAdminSummary();
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen]);
+
+  // Order status update action for store administrators
+  const handleUpdateOrderStatus = async (orderId, newStatus, newPaymentStatus = null) => {
+    setUpdatingOrderId(orderId);
+    try {
+      const payload = { status: newStatus };
+      if (newPaymentStatus) {
+        payload.payment_status = newPaymentStatus;
+      }
+      await orderService.updateOrderStatus(orderId, payload);
+      setActionMsg(`Order #${orderId} marked as "${newStatus.toUpperCase()}"!`);
+      loadAdminSummary();
+      setTimeout(() => setActionMsg(''), 4000);
+    } catch (err) {
+      console.error('Failed to update order status:', err);
+      alert(err.response?.data?.error || 'Failed to update order status.');
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
 
   // Fetch inventory books for quick management
   const loadInventory = async () => {
@@ -260,52 +291,129 @@ export const AdminDashboardModal = ({
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* 4 Overview Metrics */}
+              {/* Row 1: Executive Revenue & Order Statistics */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
                   <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-[11px] font-bold text-cyan-300 uppercase">Total Catalog</span>
-                    <BookOpen className="w-4 h-4 text-cyan-400" />
+                    <span className="text-[11px] font-bold text-cyan-300 uppercase">Gross Platform Volume</span>
+                    <DollarSign className="w-4 h-4 text-cyan-400" />
                   </div>
                   <div className="text-xl sm:text-2xl font-black text-white">
-                    {totalBooksCount.toLocaleString()}
+                    ৳ {adminSummary ? parseFloat(adminSummary.total_revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">PostgreSQL Database</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Total orders placed</div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
                   <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-[11px] font-bold text-emerald-300 uppercase">Available Stock</span>
+                    <span className="text-[11px] font-bold text-emerald-300 uppercase">Cleared Revenue</span>
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div className="text-xl sm:text-2xl font-black text-emerald-400">
-                    {taxonomy?.in_stock_count ? taxonomy.in_stock_count.toLocaleString() : '1,890+'}
+                    ৳ {adminSummary ? parseFloat(adminSummary.cleared_revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Ready for Purchase</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Paid MFS & Settled COD</div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
                   <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-[11px] font-bold text-amber-300 uppercase">Low Stock Alerts</span>
+                    <span className="text-[11px] font-bold text-indigo-300 uppercase">Marketplace Orders</span>
+                    <ShoppingCart className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-white">
+                    {adminSummary ? adminSummary.total_orders : liveOrders.length}
+                  </div>
+                  <div className="text-[11px] text-indigo-400/80 mt-0.5">
+                    {adminSummary ? adminSummary.pending_orders : 0} pending fulfillment
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-[11px] font-bold text-cyan-300 uppercase">Catalog & Stock</span>
+                    <BookOpen className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-cyan-400">
+                    {adminSummary ? adminSummary.total_books.toLocaleString() : totalBooksCount.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {adminSummary ? adminSummary.total_stock.toLocaleString() : '10,000+'} total inventory units
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Catalog Health & User Base */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-[11px] font-bold text-amber-300 uppercase">Low Stock Alert</span>
                     <AlertTriangle className="w-4 h-4 text-amber-400" />
                   </div>
                   <div className="text-xl sm:text-2xl font-black text-amber-400">
-                    ~10% of items
+                    {adminSummary ? adminSummary.low_stock_count : 0}
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">&le; 3 units left</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">&le; 3 units remaining</div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
                   <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="text-[11px] font-bold text-rose-300 uppercase">Sold Out</span>
+                    <span className="text-[11px] font-bold text-rose-300 uppercase">Out of Stock</span>
                     <XCircle className="w-4 h-4 text-rose-400" />
                   </div>
                   <div className="text-xl sm:text-2xl font-black text-rose-400">
-                    ~5% of items
+                    {adminSummary ? adminSummary.out_of_stock_count : 0}
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Needs restock</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Requires replenishment</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-[11px] font-bold text-teal-300 uppercase">Active Buyers</span>
+                    <Users className="w-4 h-4 text-teal-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-teal-400">
+                    {adminSummary ? adminSummary.total_buyers : 1}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Registered buyer profiles</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="text-[11px] font-bold text-purple-300 uppercase">Verified Sellers</span>
+                    <Shield className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-purple-400">
+                    {adminSummary ? adminSummary.total_sellers : 1}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Authorized store sellers</div>
                 </div>
               </div>
+
+              {/* Payment Methods Distribution */}
+              {adminSummary?.payment_breakdown && adminSummary.payment_breakdown.length > 0 && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-white mb-2">
+                    <span className="flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-cyan-400" />
+                      Payment Method Settlement Breakdown
+                    </span>
+                    <span className="text-slate-400 text-[11px]">Real-Time Gateway Aggregations</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {adminSummary.payment_breakdown.map((pb) => (
+                      <div key={pb.method} className="p-3 rounded-xl bg-slate-900 border border-slate-800/80">
+                        <div className="flex items-center justify-between text-[11px] mb-1">
+                          <span className="font-bold text-white uppercase">{pb.method}</span>
+                          <span className="text-slate-400">{pb.orders_count} orders</span>
+                        </div>
+                        <div className="text-base font-black text-emerald-400">
+                          ৳ {parseFloat(pb.amount).toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Genre Distribution Progress Bars */}
               <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
@@ -504,36 +612,43 @@ export const AdminDashboardModal = ({
                   Live Marketplace Checkout & Orders ({liveOrders.length} Recorded in DB)
                 </span>
                 <button
-                  onClick={loadOrders}
-                  disabled={ordersLoading}
+                  onClick={loadAdminSummary}
+                  disabled={adminSummaryLoading}
                   className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${adminSummaryLoading ? 'animate-spin' : ''}`} />
                   <span>Refresh Orders</span>
                 </button>
               </div>
 
-              {ordersLoading ? (
+              {adminSummaryLoading ? (
                 <div className="py-12 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
                   <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
                   <span>Loading recent orders from database...</span>
                 </div>
               ) : liveOrders.length > 0 ? (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {liveOrders.map((ord) => (
                     <div
                       key={ord.id}
-                      className="p-3 sm:p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-2 text-xs"
+                      className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-3 text-xs"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      {/* Top Header: Order Number, Customer, Status Badges */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-900">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-cyan-300 font-bold">{ord.order_number}</span>
-                          <span className="text-slate-400">•</span>
+                          <span className="text-slate-500">•</span>
                           <span className="font-bold text-white">{ord.customer_name}</span>
-                          <span className="text-slate-500 text-[11px]">({ord.customer_email})</span>
+                          <span className="text-slate-400 text-[11px]">({ord.customer_email})</span>
+                          {ord.customer_phone && (
+                            <span className="text-slate-400 text-[11px] flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-slate-500" />
+                              {ord.customer_phone}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {/* Payment Method Badge */}
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
@@ -543,74 +658,143 @@ export const AdminDashboardModal = ({
                                 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
                                 : ord.payment_method === 'rocket'
                                 ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
-                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-slate-800 text-slate-300 border border-slate-700'
                             }`}
                           >
                             {ord.payment_method}
                           </span>
-                          <span className="font-black text-emerald-400 text-sm">
+
+                          {/* Payment Status Badge */}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              ord.payment_status === 'paid'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                            }`}
+                          >
+                            {ord.payment_status === 'paid' ? 'Paid' : 'Pending Payment'}
+                          </span>
+
+                          {/* Fulfillment Status Badge */}
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              ord.status === 'delivered'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                : ord.status === 'shipped'
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                                : ord.status === 'processing'
+                                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            }`}
+                          >
+                            {ord.status}
+                          </span>
+
+                          <span className="font-black text-emerald-400 text-sm pl-1">
                             ৳ {parseFloat(ord.total_amount).toFixed(2)}
                           </span>
                         </div>
                       </div>
 
-                      {/* Items & Shipping Address Details */}
-                      <div className="pt-2 border-t border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-400">
-                        <div className="truncate">
-                          <span className="text-slate-500">Items: </span>
+                      {/* Items List */}
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-semibold text-slate-400">Order Items:</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {ord.items && ord.items.length > 0 ? (
                             ord.items.map((it, idx) => (
-                              <span key={it.id || idx} className="text-slate-300 font-medium">
-                                {it.quantity}x "{it.title}"
-                                {idx < ord.items.length - 1 ? ', ' : ''}
-                              </span>
+                              <div
+                                key={it.id || idx}
+                                className="p-2 rounded-xl bg-slate-900/90 border border-slate-800/80 flex items-center justify-between text-xs"
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <div className="font-bold text-white truncate">{it.title}</div>
+                                  <div className="text-[10px] text-slate-400 truncate">
+                                    by {it.author} • Seller: <span className="text-cyan-400">{it.seller_username || 'Store Catalog'}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="font-mono text-emerald-400 font-bold">
+                                    {it.quantity} &times; ৳{parseFloat(it.unit_price).toFixed(2)}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    = ৳{parseFloat(it.subtotal).toFixed(2)}
+                                  </div>
+                                </div>
+                              </div>
                             ))
                           ) : (
-                            <span className="text-slate-400">Book Order</span>
+                            <div className="text-slate-400 text-xs">Standard Book Order</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer & Meta: Shipping, TrxID, and Administrative Moderation Buttons */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-900 text-[11px]">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span>Ship to: <strong className="text-slate-300">{ord.shipping_address}</strong></span>
+                          </div>
+                          {ord.transaction_id && (
+                            <div className="font-mono text-[10px] text-cyan-400/90">
+                              Payment Transaction ID: <span className="font-bold">{ord.transaction_id}</span>
+                            </div>
                           )}
                         </div>
 
-                        {ord.transaction_id && (
-                          <div className="font-mono text-[10px] text-cyan-400/90 shrink-0">
-                            TrxID: {ord.transaction_id}
-                          </div>
-                        )}
-                      </div>
+                        {/* Admin Action Buttons */}
+                        <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
+                          {ord.payment_status !== 'paid' && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ord.status, 'paid')}
+                              disabled={updatingOrderId === ord.id}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              Confirm Paid
+                            </button>
+                          )}
 
-                      <div className="text-[10px] text-slate-500">
-                        Ship to: {ord.shipping_address}
+                          {ord.status === 'confirmed' && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, 'processing')}
+                              disabled={updatingOrderId === ord.id}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              Approve Processing
+                            </button>
+                          )}
+
+                          {ord.status === 'processing' && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, 'shipped')}
+                              disabled={updatingOrderId === ord.id}
+                              className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              Mark Shipped
+                            </button>
+                          )}
+
+                          {ord.status === 'shipped' && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, 'delivered', 'paid')}
+                              disabled={updatingOrderId === ord.id}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              Mark Delivered
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <div className="p-3 text-center text-xs text-slate-400 bg-slate-950/60 rounded-xl border border-slate-800">
-                    No checkout orders in database yet. Displaying simulated activity log:
-                  </div>
-                  {recentOrders.map((ord) => (
-                    <div
-                      key={ord.id}
-                      className="p-3 sm:p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-cyan-400 font-bold">{ord.id}</span>
-                          <span className="font-bold text-white">{ord.book}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          Buyer: <span className="text-slate-200">{ord.buyer}</span> • Qty: {ord.qty} • {ord.time}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between sm:justify-end gap-3 self-stretch sm:self-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-                        <span className="font-black text-emerald-400 text-sm">{ord.amount}</span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-bold">
-                          {ord.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="py-12 text-center text-xs text-slate-400 bg-slate-950/60 rounded-2xl border border-slate-800 p-6 space-y-2">
+                  <ShoppingCart className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                  <div className="font-bold text-white text-sm">No Marketplace Orders Yet</div>
+                  <p className="max-w-md mx-auto text-slate-400">
+                    When buyers purchase books via Instant Buy or Cart Checkout, orders with full customer details, payment gateway methods (bKash, Nagad, Rocket, COD), and transaction IDs will appear here in real time.
+                  </p>
                 </div>
               )}
             </div>
