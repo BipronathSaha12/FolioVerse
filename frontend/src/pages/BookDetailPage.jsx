@@ -359,3 +359,4 @@ export const BookDetailPage = ({ onEditBook, onDeleteBook, addToast }) => {
     </div>
   );
 };
+

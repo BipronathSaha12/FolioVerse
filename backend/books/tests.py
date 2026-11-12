@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from datetime import date
-from .models import Book
+from .models import Book, Order
 
 
 class BookStoreAPITests(TestCase):
@@ -435,3 +435,155 @@ class BookStoreAPITests(TestCase):
         self.assertIn('total_listed_books', res.data)
         self.assertIn('active_stock', res.data)
         self.assertIn('total_revenue', res.data)
+
+    def test_db_router_routing_logic(self):
+        """
+        Verify PrimaryReplicaRouter directs writes to 'default' and reads appropriately.
+        """
+        from folioverse_api.db_router import PrimaryReplicaRouter
+        router = PrimaryReplicaRouter()
+
+        # Writes must always go to primary default
+        self.assertEqual(router.db_for_write(Book), 'default')
+        self.assertEqual(router.db_for_write(Order), 'default')
+
+        # Migrations must only execute on default
+        self.assertTrue(router.allow_migrate('default', 'books'))
+        self.assertFalse(router.allow_migrate('replica', 'books'))
+
+        # Relations must be allowed
+        sample_book = self.books[0]
+        sample_order = Order.objects.create(
+            order_number="TEST-ORD-ROUTER",
+            customer_name="Router Test",
+            customer_email="router@example.com",
+            shipping_address="Dhaka",
+            total_amount=200.00
+        )
+        self.assertTrue(router.allow_relation(sample_book, sample_order))
+
+        # Default read without replica in DATABASES
+        self.assertEqual(router.db_for_read(Book), 'default')
+
+        # Read when replica is present in DATABASES
+        import unittest.mock as mock
+        from django.conf import settings
+        with mock.patch.dict(settings.DATABASES, {'replica': {'ENGINE': 'django.db.backends.sqlite3'}}):
+            self.assertEqual(router.db_for_read(Book), 'replica')
+            # Auth/sessions remain on default
+            from django.contrib.auth.models import User
+            self.assertEqual(router.db_for_read(User), 'default')
+
+    def test_redis_inventory_manager_operations(self):
+        """
+        Verify atomic decrement, insufficient stock prevention, cold cache warm-up, and rollback.
+        """
+        from books.redis_inventory import RedisInventoryManager
+        book = self.books[0]
+
+        # Warm up stock
+        RedisInventoryManager.warm_stock(book.id, 10)
+        self.assertEqual(RedisInventoryManager.get_stock(book.id), 10)
+
+        # Successful decrement
+        success, remaining, err = RedisInventoryManager.decrement_stock(book.id, 3)
+        self.assertTrue(success)
+        self.assertEqual(remaining, 7)
+        self.assertEqual(RedisInventoryManager.get_stock(book.id), 7)
+
+        # Insufficient stock decrement
+        success, current, err = RedisInventoryManager.decrement_stock(book.id, 15)
+        self.assertFalse(success)
+        self.assertIn("Insufficient stock", err)
+        self.assertEqual(RedisInventoryManager.get_stock(book.id), 7)
+
+        # Rollback compensation transaction
+        RedisInventoryManager.rollback_stock(book.id, 3)
+        self.assertEqual(RedisInventoryManager.get_stock(book.id), 10)
+
+    def test_book_buy_with_redis_inventory(self):
+        """
+        Verify that POST /api/books/<id>/buy/ decrements inventory atomically.
+        """
+        from books.redis_inventory import RedisInventoryManager
+        book = self.books[0]
+        RedisInventoryManager.warm_stock(book.id, book.stock)
+
+        initial_stock = book.stock
+        res = self.client.post(f'/api/books/{book.id}/buy/', {'quantity': 2}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        book.refresh_from_db()
+        self.assertEqual(book.stock, initial_stock - 2)
+        self.assertEqual(RedisInventoryManager.get_stock(book.id), initial_stock - 2)
+
+    def test_order_checkout_with_redis_inventory(self):
+        """
+        Verify multi-item cart checkout with atomic Redis inventory and stock update.
+        """
+        from books.redis_inventory import RedisInventoryManager
+        book = self.books[0]
+        RedisInventoryManager.warm_stock(book.id, 10)
+        book.stock = 10
+        book.save()
+
+        order_payload = {
+            "customer_name": "Test Shopper",
+            "customer_email": "shopper@example.com",
+            "customer_phone": "01711112233",
+            "shipping_address": "Dhanmondi, Dhaka",
+            "payment_method": "cod",
+            "items": [
+                {
+                    "book_id": book.id,
+                    "quantity": 3
+                }
+            ]
+        }
+        res = self.client.post('/api/orders/', order_payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+
+        book.refresh_from_db()
+        self.assertEqual(book.stock, 7)
+        self.assertEqual(RedisInventoryManager.get_stock(book.id), 7)
+
+    def test_order_checkout_insufficient_stock_rollback(self):
+        """
+        Verify that when a cart item has insufficient stock, any earlier items roll back.
+        """
+        from books.redis_inventory import RedisInventoryManager
+        book = self.books[0]
+
+        book2 = Book.objects.create(
+            title="Out of Stock Book",
+            author="Author B",
+            price=250.00,
+            published_date="2024-01-01",
+            category="Technology",
+            stock=1
+        )
+        book.stock = 10
+        book.save()
+        RedisInventoryManager.warm_stock(book.id, 10)
+        RedisInventoryManager.warm_stock(book2.id, 1)
+
+        order_payload = {
+            "customer_name": "Test Shopper",
+            "customer_email": "shopper@example.com",
+            "customer_phone": "01711112233",
+            "shipping_address": "Gulshan, Dhaka",
+            "payment_method": "cod",
+            "items": [
+                {"book_id": book.id, "quantity": 2},
+                {"book_id": book2.id, "quantity": 5}  # Exceeds available stock
+            ]
+        }
+        res = self.client.post('/api/orders/', order_payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Insufficient stock", res.data.get('error', ''))
+
+        # Verify that book 1's stock was rolled back and preserved
+        self.assertEqual(RedisInventoryManager.get_stock(book.id), 10)
+        book.refresh_from_db()
+        self.assertEqual(book.stock, 10)
+

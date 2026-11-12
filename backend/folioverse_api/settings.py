@@ -82,8 +82,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'folioverse_api.wsgi.application'
 
-# PostgreSQL Database Configuration (Neon or local)
+# PostgreSQL Database Configuration (Neon or local) with Read/Write Splitting
 DATABASE_URL = os.getenv('DATABASE_URL')
+DATABASE_REPLICA_URL = os.getenv('DATABASE_REPLICA_URL', '').strip()
 
 import sys
 is_test_run = 'test' in sys.argv
@@ -105,6 +106,15 @@ elif DATABASE_URL:
             ssl_require=is_postgres and not DEBUG,
         )
     }
+    # Configure Read Replica if DATABASE_REPLICA_URL is provided
+    if DATABASE_REPLICA_URL:
+        is_rep_postgres = DATABASE_REPLICA_URL.startswith('postgres://') or DATABASE_REPLICA_URL.startswith('postgresql://')
+        DATABASES['replica'] = dj_database_url.config(
+            default=DATABASE_REPLICA_URL,
+            conn_max_age=600 if is_rep_postgres else 0,
+            conn_health_checks=True,
+            ssl_require=is_rep_postgres and not DEBUG,
+        )
 else:
     DB_NAME = os.getenv('DB_NAME', 'folioverse_db')
     DB_USER = os.getenv('DB_USER', 'postgres')
@@ -122,6 +132,9 @@ else:
             'PORT': DB_PORT,
         }
     }
+
+# Read/Write Database Router for horizontal read scaling
+DATABASE_ROUTERS = ['folioverse_api.db_router.PrimaryReplicaRouter']
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -215,6 +228,16 @@ else:
             'LOCATION': 'folioverse-locmem-cache',
         }
     }
+
+# -----------------------------------------------------------------------------
+# Celery Asynchronous Task Configuration
+# -----------------------------------------------------------------------------
+CELERY_BROKER_URL = REDIS_URL if REDIS_URL else 'memory://'
+CELERY_RESULT_BACKEND = REDIS_URL if REDIS_URL else 'cache+memory://'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
 
 # -----------------------------------------------------------------------------
 # Layer 1: Network, Transport & Edge Security

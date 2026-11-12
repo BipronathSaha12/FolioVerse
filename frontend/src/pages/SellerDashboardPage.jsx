@@ -15,3 +15,4 @@ export const SellerDashboardPage = ({ onOpenAddBook, onEditBook, onRefreshCatalo
     />
   );
 };
+

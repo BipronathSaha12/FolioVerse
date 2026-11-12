@@ -102,6 +102,13 @@ class Book(models.Model):
         else:
             self.status = 'available'
         super().save(*args, **kwargs)
+        # Warm / update Redis inventory cache if book has an ID
+        if self.id:
+            try:
+                from .redis_inventory import RedisInventoryManager
+                RedisInventoryManager.warm_stock(self.id, self.stock)
+            except Exception:
+                pass
 
     def __str__(self):
         return f"{self.title} by {self.author} [{self.category} / {self.subcategory}] - ৳{self.price} ({self.status})"

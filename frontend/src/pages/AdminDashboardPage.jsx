@@ -15,3 +15,4 @@ export const AdminDashboardPage = ({ onOpenAddBook, onEditBook, onRefreshCatalog
     />
   );
 };
+

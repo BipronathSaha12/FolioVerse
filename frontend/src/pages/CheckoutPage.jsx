@@ -476,3 +476,4 @@ export const CheckoutPage = ({ onOrderPlaced, addToast }) => {
     </div>
   );
 };
+

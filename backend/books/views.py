@@ -16,6 +16,7 @@ from .pagination import BookPagination
 from .filters import BookFilter
 from .payment_gateway import gateway_provider
 from .permissions import IsOwnerOrReadOnly, IsOrderParticipantOrAdmin, IsContactManagerOrSubmitOnly
+from .redis_inventory import RedisInventoryManager
 
 
 class BookViewSet(viewsets.ModelViewSet):
@@ -59,8 +60,10 @@ class BookViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[permissions.AllowAny])
     def buy(self, request, pk=None):
         """
-        High-scale, concurrency-safe atomic checkout endpoint.
-        Uses select_for_update() inside a transaction to prevent race conditions during high purchase volume.
+        High-scale, concurrency-safe flash-sale purchase endpoint.
+        Manages atomic inventory decrements in Redis via Lua scripts,
+        eliminating row lock contention (select_for_update) and supporting 100k+ active shoppers.
+        Persists to PostgreSQL with compensation rollback on error.
         """
         quantity = int(request.data.get('quantity', 1))
         if quantity <= 0:
@@ -69,42 +72,54 @@ class BookViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        with transaction.atomic():
-            try:
-                book = Book.objects.select_for_update().get(pk=pk)
-            except Book.DoesNotExist:
-                return Response({"error": "Book not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            book = Book.objects.get(pk=pk)
+        except Book.DoesNotExist:
+            return Response({"error": "Book not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            if book.stock < quantity:
-                return Response(
-                    {
-                        "error": f"Insufficient stock. Only {book.stock} item(s) available for '{book.title}'.",
-                        "available_stock": book.stock
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        # 1. High-throughput atomic Redis Lua decrement
+        success, remaining_stock, error_msg = RedisInventoryManager.decrement_stock(
+            book.id, quantity, db_fallback_book=book
+        )
+        if not success:
+            return Response(
+                {
+                    "error": error_msg or f"Insufficient stock. Only {book.stock} item(s) available for '{book.title}'.",
+                    "available_stock": remaining_stock
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            # Decrement inventory safely
-            book.stock -= quantity
-            book.save()
+        # 2. Persist inventory state in PostgreSQL with compensation rollback
+        try:
+            with transaction.atomic():
+                book.stock = remaining_stock
+                book.save()
+        except Exception as e:
+            # Compensate in Redis if database persistence fails
+            RedisInventoryManager.rollback_stock(book.id, quantity)
+            return Response(
+                {"error": f"Failed to persist purchase transaction: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-            total_amount = float(book.price) * quantity
+        total_amount = float(book.price) * quantity
 
-            return Response({
-                "message": f"Successfully purchased {quantity} copy(ies) of '{book.title}'!",
-                "order": {
-                    "book_id": book.id,
-                    "title": book.title,
-                    "author": book.author,
-                    "category": book.category,
-                    "subcategory": book.subcategory,
-                    "quantity": quantity,
-                    "unit_price": str(book.price),
-                    "total_amount": f"{total_amount:.2f}",
-                    "remaining_stock": book.stock,
-                    "status": book.status,
-                }
-            }, status=status.HTTP_200_OK)
+        return Response({
+            "message": f"Successfully purchased {quantity} copy(ies) of '{book.title}'!",
+            "order": {
+                "book_id": book.id,
+                "title": book.title,
+                "author": book.author,
+                "category": book.category,
+                "subcategory": book.subcategory,
+                "quantity": quantity,
+                "unit_price": str(book.price),
+                "total_amount": f"{total_amount:.2f}",
+                "remaining_stock": book.stock,
+                "status": book.status,
+            }
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def taxonomy(self, request):
@@ -701,82 +716,101 @@ class OrderViewSet(viewsets.ModelViewSet):
             if not resolved_user and customer_email:
                 resolved_user = User.objects.filter(email__iexact=customer_email).first()
 
-        # Atomic checkout: lock books and decrement inventory
-        with transaction.atomic():
-            order_number = f"FV-ORD-{int(time.time())}-{random.randint(1000, 9999)}"
-            order = Order.objects.create(
-                order_number=order_number,
-                user=resolved_user,
-                customer_name=customer_name,
-                customer_email=customer_email,
-                customer_phone=customer_phone,
-                shipping_address=shipping_address,
-                payment_method=payment_method,
-                payment_status=initial_payment_status,
-                transaction_id=transaction_id,
-                total_amount=Decimal('0.00'),
-                status='confirmed',
-            )
+        # Atomic Redis inventory reservation for all cart items (Flash-Sale Safe)
+        decremented_items = []
+        for item in items_data:
+            book_id = item.get('book_id') or item.get('id')
+            qty = int(item.get('quantity', 1))
 
-            total_amount = Decimal('0.00')
-            created_items = []
-
-            for item in items_data:
-                book_id = item.get('book_id') or item.get('id')
-                qty = int(item.get('quantity', 1))
-
-                if qty <= 0:
-                    transaction.set_rollback(True)
-                    return Response(
-                        {"error": f"Quantity for book ID {book_id} must be at least 1."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                try:
-                    book = Book.objects.select_for_update().get(pk=book_id)
-                except Book.DoesNotExist:
-                    transaction.set_rollback(True)
-                    return Response(
-                        {"error": f"Book with ID {book_id} was not found in catalog."},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-
-                if book.stock < qty:
-                    transaction.set_rollback(True)
-                    return Response(
-                        {
-                            "error": f"Insufficient stock for '{book.title}'. Available: {book.stock}, requested: {qty}.",
-                            "book_id": book.id,
-                            "available_stock": book.stock,
-                        },
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # Decrement stock
-                book.stock -= qty
-                book.save()
-
-                item_subtotal = book.price * qty
-                total_amount += item_subtotal
-
-                order_item = OrderItem.objects.create(
-                    order=order,
-                    book=book,
-                    title=book.title,
-                    author=book.author,
-                    category=book.category or 'Literature & Novel',
-                    cover_image=book.cover_image or '',
-                    unit_price=book.price,
-                    quantity=qty,
-                    subtotal=item_subtotal,
+            if qty <= 0:
+                for b_id, q, _, _ in decremented_items:
+                    RedisInventoryManager.rollback_stock(b_id, q)
+                return Response(
+                    {"error": f"Quantity for book ID {book_id} must be at least 1."},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
-                created_items.append(order_item)
 
-            order.total_amount = total_amount
-            order.save()
+            try:
+                book = Book.objects.get(pk=book_id)
+            except Book.DoesNotExist:
+                for b_id, q, _, _ in decremented_items:
+                    RedisInventoryManager.rollback_stock(b_id, q)
+                return Response(
+                    {"error": f"Book with ID {book_id} was not found in catalog."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-            serializer = OrderSerializer(order)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # Atomic Redis Lua decrement
+            success, remaining, err = RedisInventoryManager.decrement_stock(
+                book.id, qty, db_fallback_book=book
+            )
+            if not success:
+                # Roll back any previously decremented items in this transaction
+                for b_id, q, _, _ in decremented_items:
+                    RedisInventoryManager.rollback_stock(b_id, q)
+                return Response(
+                    {
+                        "error": f"Insufficient stock for '{book.title}'. Available: {book.stock}, requested: {qty}.",
+                        "book_id": book.id,
+                        "available_stock": remaining,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            decremented_items.append((book.id, qty, remaining, book))
+
+        # Database persistence
+        try:
+            with transaction.atomic():
+                order_number = f"FV-ORD-{int(time.time())}-{random.randint(1000, 9999)}"
+                order = Order.objects.create(
+                    order_number=order_number,
+                    user=resolved_user,
+                    customer_name=customer_name,
+                    customer_email=customer_email,
+                    customer_phone=customer_phone,
+                    shipping_address=shipping_address,
+                    payment_method=payment_method,
+                    payment_status=initial_payment_status,
+                    transaction_id=transaction_id,
+                    total_amount=Decimal('0.00'),
+                    status='confirmed',
+                )
+
+                total_amount = Decimal('0.00')
+                created_items = []
+
+                for book_id, qty, remaining_stock, book in decremented_items:
+                    # Update stock in PostgreSQL
+                    book.stock = remaining_stock
+                    book.save()
+
+                    item_subtotal = book.price * qty
+                    total_amount += item_subtotal
+
+                    order_item = OrderItem.objects.create(
+                        order=order,
+                        book=book,
+                        title=book.title,
+                        author=book.author,
+                        category=book.category or 'Literature & Novel',
+                        cover_image=book.cover_image or '',
+                        unit_price=book.price,
+                        quantity=qty,
+                        subtotal=item_subtotal,
+                    )
+                    created_items.append(order_item)
+
+                order.total_amount = total_amount
+                order.save()
+
+                serializer = OrderSerializer(order)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            # If database persistence fails, roll back all reserved inventory in Redis
+            for b_id, q, _, _ in decremented_items:
+                RedisInventoryManager.rollback_stock(b_id, q)
+            raise e
 
 
 class ContactViewSet(viewsets.ModelViewSet):

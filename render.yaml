@@ -16,3 +16,7 @@ services:
         value: ".onrender.com,localhost,127.0.0.1"
       - key: DATABASE_URL
         sync: false
+      - key: DATABASE_REPLICA_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
